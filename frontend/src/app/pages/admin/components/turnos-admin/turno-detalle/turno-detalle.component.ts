@@ -20,15 +20,11 @@ import { Turno } from '../turno.model';
         <div class="selected-person">
           <span class="avatar" aria-hidden="true"><i class="ri-user-fill"></i></span>
           <div>
-            <strong>{{ t.usuario }}</strong>
-            <span>Usuario beneficiario</span>
+            <strong>{{ t.representante || 'Sin representante designado' }}</strong>
+            <span>Representante del sector</span>
           </div>
         </div>
         <dl class="fact-grid">
-          <div>
-            <dt>Lote</dt>
-            <dd>{{ t.lote }}</dd>
-          </div>
           <div>
             <dt>Sector</dt>
             <dd>{{ t.sector }}</dd>

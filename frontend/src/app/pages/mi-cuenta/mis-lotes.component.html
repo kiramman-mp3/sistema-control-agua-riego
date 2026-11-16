@@ -10,8 +10,8 @@
         {{ lotes.length === 1 ? '1 lote' : lotes.length + ' lotes' }} y
         {{
           totalTurnos === 1
-            ? '1 turno de riego asignado'
-            : totalTurnos + ' turnos de riego asignados'
+            ? '1 turno de riego en su sector'
+            : totalTurnos + ' turnos de riego en su sector'
         }}.
       </p>
     }
@@ -109,7 +109,7 @@
                 }
               </ul>
             } @else {
-              <p class="text-muted">Este lote no tiene turnos de riego asignados.</p>
+              <p class="text-muted">El sector de este lote aún no tiene turnos de riego.</p>
             }
           </section>
         </div>

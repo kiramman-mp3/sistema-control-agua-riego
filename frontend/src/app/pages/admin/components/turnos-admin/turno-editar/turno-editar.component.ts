@@ -15,7 +15,7 @@ import { AYUDAS_FORMULARIO } from '../../../../../core/directives/formularios';
   template: `
     <app-modal
       titulo="Editar turno"
-      [subtitulo]="turno().usuario + ' · Lote ' + turno().lote"
+      [subtitulo]="'Sector ' + turno().sector"
       icono="ri-edit-line"
       tamano="sm"
       [bloqueado]="guardando()"
@@ -120,18 +120,16 @@ export class TurnoEditarComponent implements OnInit {
 
     const t = this.turno();
     this.guardando.set(true);
-    this.admin
-      .actualizarTurno(t.id, { persona_id: t.persona_id, lote_id: t.lote_id, ...f })
-      .subscribe({
-        next: (res) => {
-          this.guardando.set(false);
-          this.notify.success(res.message || 'Turno actualizado.');
-          this.guardado.emit();
-        },
-        error: (err) => {
-          this.guardando.set(false);
-          this.notify.error(err.error?.message || 'Error al actualizar el turno.');
-        },
-      });
+    this.admin.actualizarTurno(t.id, { sector_id: t.sector_id, ...f }).subscribe({
+      next: (res) => {
+        this.guardando.set(false);
+        this.notify.success(res.message || 'Turno actualizado.');
+        this.guardado.emit();
+      },
+      error: (err) => {
+        this.guardando.set(false);
+        this.notify.error(err.error?.message || 'Error al actualizar el turno.');
+      },
+    });
   }
 }

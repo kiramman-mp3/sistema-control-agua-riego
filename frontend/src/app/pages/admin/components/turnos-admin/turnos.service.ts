@@ -13,17 +13,15 @@ export class TurnosService {
     return this.admin.getTurnos(undefined, sector_id).pipe(
       map((res) =>
         (res?.data ?? []).map((t: TurnoItem): Turno => ({
-          ...t,
+          id: t.id,
           sector_id: t.sector_id,
           dia_semana: Number(t.dia_semana),
           dia: nombreDia(t.dia_semana),
-          usuario: t.usuario_nombre || `${t.nombres || ''} ${t.apellidos || ''}`.trim(),
-          cedula: t.cedula,
-          lote: t.lote_codigo || 'N/A',
           sector: t.sector_nombre || 'N/A',
-          superficie_m2: t.superficie_m2 ?? undefined,
+          representante: t.representante_nombre || '',
           horaInicio: String(t.hora_inicio || '').substring(0, 5),
           horaFin: String(t.hora_fin || '').substring(0, 5),
+          observacion: t.observacion ?? undefined,
         })),
       ),
     );

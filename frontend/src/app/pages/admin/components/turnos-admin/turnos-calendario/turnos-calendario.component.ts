@@ -52,13 +52,16 @@ interface ColumnaDia {
                     class="shift__main"
                     (click)="ver.emit(t)"
                     [attr.aria-label]="
-                      'Ver turno de ' + t.usuario + ', ' + t.horaInicio + ' a ' + t.horaFin
+                      'Ver turno de ' + t.sector + ', ' + t.horaInicio + ' a ' + t.horaFin
                     "
                   >
-                    <strong class="shift__who" [title]="t.usuario">{{ t.usuario }}</strong>
-                    <span class="shift__meta" [title]="t.sector">
+                    <strong class="shift__who" [title]="t.sector">{{ t.sector }}</strong>
+                    <span class="shift__meta" [title]="t.representante || 'Sin representante'">
                       <span>hasta {{ t.horaFin }}</span>
-                      <span><i class="ri-landscape-line" aria-hidden="true"></i> {{ t.lote }}</span>
+                      <span
+                        ><i class="ri-user-line" aria-hidden="true"></i>
+                        {{ t.representante || 'Sin designar' }}</span
+                      >
                     </span>
                   </button>
                   <div class="shift__actions">
@@ -67,7 +70,7 @@ interface ColumnaDia {
                       class="icon-btn"
                       (click)="editar.emit(t)"
                       title="Editar"
-                      [attr.aria-label]="'Editar turno de ' + t.usuario"
+                      [attr.aria-label]="'Editar turno de ' + t.sector"
                     >
                       <i class="ri-edit-line" aria-hidden="true"></i>
                     </button>
@@ -76,7 +79,7 @@ interface ColumnaDia {
                       class="icon-btn icon-btn--danger"
                       (click)="eliminar.emit(t)"
                       title="Eliminar"
-                      [attr.aria-label]="'Eliminar turno de ' + t.usuario"
+                      [attr.aria-label]="'Eliminar turno de ' + t.sector"
                     >
                       <i class="ri-delete-bin-line" aria-hidden="true"></i>
                     </button>
@@ -109,7 +112,7 @@ export class TurnosCalendarioComponent {
         .filter((t) => t.dia_semana === dia.valor)
         .sort(
           (a, b) =>
-            a.horaInicio.localeCompare(b.horaInicio) || a.usuario.localeCompare(b.usuario, 'es'),
+            a.horaInicio.localeCompare(b.horaInicio) || a.sector.localeCompare(b.sector, 'es'),
         );
       const grupos: GrupoHora[] = [];
       for (const t of delDia) {
