@@ -74,7 +74,7 @@ async function exigirOtroAdministrador(conexion, personaId, mensaje) {
 
 /**
  * El rol de tesorero lo gobierna el propio tesorero: otra cuenta de la directiva no puede tocar la cuenta de un
- * tesorero (cambiar su rol o estado, restablecer su contraseña, quitarle la verificación en dos pasos) ni conceder
+ * tesorero (cambiar su rol o estado, restablecer su contraseña) ni conceder
  * el rol. La única excepción es designar al primer tesorero cuando no hay ninguno activo.
  */
 async function exigirPermisoSobreTesorero(conexion, usuario, { cuenta = null, rolNuevo = null } = {}) {

@@ -35,10 +35,6 @@ export class LoginComponent implements OnInit {
   recordarSesion = true;
   mostrarAyudaPassword = false;
 
-  // Segundo paso: código de la aplicación de autenticación (verificación en dos pasos)
-  requiereTotp = false;
-  codigoTotp = '';
-
   // Flujo de cambio de contraseña
   requiereCambioPassword = false;
   nuevaPassword1 = '';
@@ -81,12 +77,7 @@ export class LoginComponent implements OnInit {
       next: (res) => {
         this.cargando = false;
         if (res.status === 'OK') {
-          if (res.requiereTotp) {
-            this.requiereTotp = true;
-            this.codigoTotp = '';
-          } else {
-            this.continuarTrasIngreso(res);
-          }
+          this.continuarTrasIngreso(res);
         }
         this.cdr.detectChanges();
       },
@@ -105,45 +96,6 @@ export class LoginComponent implements OnInit {
     } else {
       this.redirigirPorRol(res.user.rol);
     }
-  }
-
-  /** Envía el código de 6 dígitos (o un código de recuperación) del segundo paso. */
-  verificarCodigo() {
-    const codigo = this.codigoTotp.trim();
-    if (!codigo) {
-      this.errorMensaje = 'Ingrese el código de su aplicación de autenticación.';
-      return;
-    }
-    this.cargando = true;
-    this.errorMensaje = '';
-    this.authService.verificarTotp(codigo).subscribe({
-      next: (res) => {
-        this.cargando = false;
-        this.requiereTotp = false;
-        if (res.codigosRecuperacionRestantes !== undefined) {
-          this.exitoMensaje = `Usó un código de recuperación. Le quedan ${res.codigosRecuperacionRestantes}.`;
-        }
-        this.continuarTrasIngreso(res);
-        this.cdr.detectChanges();
-      },
-      error: (err: HttpErrorResponse) => {
-        this.cargando = false;
-        this.codigoTotp = '';
-        this.errorMensaje = mensajeDeError(
-          err,
-          'No se pudo verificar el código. Intente de nuevo.',
-        );
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
-  /** Vuelve al formulario de usuario y contraseña. */
-  cancelarTotp() {
-    this.authService.cancelarTotp();
-    this.requiereTotp = false;
-    this.codigoTotp = this.password = '';
-    this.errorMensaje = '';
   }
 
   redirigirPorRol(rol: string) {

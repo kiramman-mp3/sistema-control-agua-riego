@@ -50,7 +50,6 @@ describe('Mi cuenta', () => {
           provide: AuthService,
           useValue: {
             getUser: () => ({ cedula: '1804567890', personaId: 7 }),
-            esAdmin: () => false,
             logout: vi.fn(),
           },
         },
