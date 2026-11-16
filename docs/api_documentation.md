@@ -22,9 +22,8 @@ Los endpoints protegidos requieren autenticación mediante **JSON Web Tokens (JW
   Authorization: Bearer <su_token_jwt>
   ```
 - **Roles del Sistema:**
-  - `ADMIN`: Acceso total a todos los módulos y auditoría.
-  - `TESORERO`: Acceso a la recaudación de pagos, egresos, tarifas y reporte de balance al día.
-  - `SECRETARIO`: Acceso a la gestión de usuarios, lotes, turnos, asambleas y control de asistencias.
+  - `ADMIN`: Directiva. Gestiona usuarios, lotes, turnos, asambleas, mingas, noticias y auditoría. **No** accede a las finanzas (cobros, pagos, tarifas, egresos, balance, historial): en `/financiero` solo ve sus propias obligaciones y comprobantes.
+  - `TESORERO`: Todas las funciones de `ADMIN` y, además, es el único con acceso a las finanzas. Ver [ADR 0003](architecture/adr/0003-rol-tesorero-con-acceso-exclusivo-a-finanzas.md).
   - `USUARIO`: Acceso a la consulta pública y su portal personal.
 
 ---
@@ -81,10 +80,13 @@ Los endpoints protegidos requieren autenticación mediante **JSON Web Tokens (JW
 
 | Método | Endpoint | Permisos | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/turnos` | Público / Autenticado | Horarios de distribución de agua asignados por día de la semana (`1` a `7`) y sector. |
-| `POST` | `/turnos` | ADMIN / SECRETARIO | Asignar turno semanal. Valida `hora_inicio < hora_fin` y **no solapamientos dentro del sector**. |
-| `PUT` | `/turnos/:id` | ADMIN / SECRETARIO | Modificar turno existente (persona, lote, tipo, horario). |
-| `DELETE` | `/turnos/:id` | ADMIN / SECRETARIO | Desactivar turno de riego (conserva historial y cancela horario activo). |
+| `GET` | `/turnos` | Autenticado | Turnos activos por sector (día `1` a `7`). La directiva ve todos; un usuario solo los de los sectores donde tiene lotes o que representa. Filtros `sector_id`, `dia_semana`. |
+| `GET` | `/turnos/cronograma` | ADMIN / TESORERO | Cronograma completo por sector y día, con el representante de cada sector (nombre y cédula) y la observación de cada turno. Incluye los sectores sin turnos. |
+| `GET` | `/turnos/cronograma-publico` | Público | Mismo cronograma, solo con el horario de cada turno: sin nombres ni cédulas. |
+| `POST` | `/turnos` | ADMIN / TESORERO | Crea un turno semanal de un sector (`sector_id`, `dia_semana`, `hora_inicio`, `hora_fin`). Valida el horario (un turno nocturno dura como máximo 12 horas) y que **no se cruce con otro turno del sector**. |
+| `PUT` | `/turnos/:id` | ADMIN / TESORERO | Modifica un turno activo; los campos omitidos conservan su valor. |
+| `DELETE` | `/turnos/:id` | ADMIN / TESORERO | Desactiva el turno (conserva el historial). |
+| `PUT` | `/turnos/sectores/:id/representante` | ADMIN / TESORERO | Designa al representante del sector (`persona_id`, una persona activa) o lo quita con `null`. Queda en la auditoría. |
 
 ---
 
@@ -114,25 +116,25 @@ Los endpoints protegidos requieren autenticación mediante **JSON Web Tokens (JW
 | :--- | :--- | :--- | :--- |
 | `GET` | `/financiero/conceptos` | Público / Autenticado | Catálogo de cobros activos (`AGUA_ANUAL`, `MULTA_ASAMBLEA`, `MULTA_MINGA`) y tarifa vigente. El agua se cobra una vez al año (`/financiero/agua-anual/*`). |
 | `GET` | `/financiero/agua-anual/pagos` | Autenticado | Pagos anuales de agua (un usuario solo ve los suyos). Filtros `desde`, `hasta`, `estado`. |
-| `GET` | `/financiero/agua-anual/pagos/:id` | ADMIN / titular | Detalle de un pago anual para reimprimir su comprobante (`REC-AGUA-…`). |
-| `POST` | `/financiero/agua-anual/pagos/:id/comprobante` | ADMIN | Adjunta o reemplaza el comprobante bancario (PDF, JPG o PNG, hasta 10 MB) de un pago anual vigente por transferencia o depósito. Campo `archivo` (multipart).
-| `GET` | `/financiero/agua-anual/pagos/:id/comprobante` | ADMIN / titular | Descarga el comprobante bancario adjunto del pago anual. 404 si no tiene. |
-| `POST` | `/financiero/agua-anual/pagos/:id/anular` | ADMIN | Anula un pago anual (motivo obligatorio) y devuelve sus obligaciones a `PENDIENTE`. |
-| `POST` | `/financiero/agua-anual/obligaciones/:id/anular` | ADMIN | Anula una obligación anual pendiente (exoneración). |
-| `POST` | `/financiero/tarifas` | ADMIN | Registrar o actualizar tarifa para un concepto por rango de vigencia. |
+| `GET` | `/financiero/agua-anual/pagos/:id` | TESORERO / titular | Detalle de un pago anual para reimprimir su comprobante (`REC-AGUA-…`). |
+| `POST` | `/financiero/agua-anual/pagos/:id/comprobante` | TESORERO | Adjunta o reemplaza el comprobante bancario (PDF, JPG o PNG, hasta 10 MB) de un pago anual vigente por transferencia o depósito. Campo `archivo` (multipart).
+| `GET` | `/financiero/agua-anual/pagos/:id/comprobante` | TESORERO / titular | Descarga el comprobante bancario adjunto del pago anual. 404 si no tiene. |
+| `POST` | `/financiero/agua-anual/pagos/:id/anular` | TESORERO | Anula un pago anual (motivo obligatorio) y devuelve sus obligaciones a `PENDIENTE`. |
+| `POST` | `/financiero/agua-anual/obligaciones/:id/anular` | TESORERO | Anula una obligación anual pendiente (exoneración). |
+| `POST` | `/financiero/tarifas` | TESORERO | Registrar o actualizar tarifa para un concepto por rango de vigencia. |
 | `GET` | `/financiero/obligaciones` | Autenticado | Cuentas por cobrar pendientes (`?persona_id=...&estado=PENDIENTE`). |
-| `POST` | `/financiero/obligaciones` | ADMIN / TESORERO | Emisión de obligación de cobro manual. |
-| `POST` | `/financiero/obligaciones/:id/anular` | ADMIN / TESORERO | Anulación de obligación con motivo y registro de auditoría. |
-| `POST` | `/financiero/pagos` | ADMIN / TESORERO | **REGISTRO DE PAGO COMPLETO (Transacción sin pagos parciales):** Recibe array de `obligacionesIds`, valida propiedad y cancela las obligaciones en una transacción atómica. |
+| `POST` | `/financiero/obligaciones` | TESORERO | Emisión de obligación de cobro manual. |
+| `POST` | `/financiero/obligaciones/:id/anular` | TESORERO | Anulación de obligación con motivo y registro de auditoría. |
+| `POST` | `/financiero/pagos` | TESORERO | **REGISTRO DE PAGO COMPLETO (Transacción sin pagos parciales):** Recibe array de `obligacionesIds`, valida propiedad y cancela las obligaciones en una transacción atómica. |
 | `GET` | `/financiero/pagos` | Autenticado | Historial de pagos y recaudación realizada. |
-| `POST` | `/financiero/agua-anual/obligaciones` | ADMIN | **Pago anual de agua:** genera la obligación del año por cada lote de un usuario activo. La cuota del lote es el valor por hectárea (`valor_hectarea`, o la tarifa `AGUA_ANUAL` vigente al 1 de enero) por sus hectáreas (`superficie_m2 / 10000`), redondeada al centavo. Con `simular: true` devuelve el total y el detalle por lote sin escribir. Si algún lote por emitir no tiene superficie responde `409` con `lotes_sin_superficie` y no emite ninguna. Es idempotente: las obligaciones ya emitidas del año se respetan. |
-| `GET` | `/financiero/agua-anual/resumen?anio=` | ADMIN | Estado del año: emitidas, pagadas, pendientes, total y recaudado; además `lotesSinSuperficie` (bloquean la emisión) y `lotesSuperficieProvisional` (lotes con la superficie de demostración que hay que corregir). |
-| `GET` | `/financiero/agua-anual/obligaciones/:personaId` | ADMIN | Obligaciones anuales de agua pendientes de un usuario, de la más antigua a la más reciente. |
-| `POST` | `/financiero/agua-anual/pagos` | ADMIN | Registra el pago (solo `TRANSFERENCIA` o `DEPOSITO`, con referencia) de una o varias obligaciones anuales de agua en una transacción atómica. |
-| `GET` | `/financiero/egresos` | Autenticado | Gastos y compras realizadas por la Junta. |
-| `POST` | `/financiero/egresos` | ADMIN / TESORERO | Registrar gasto o compra con número de factura. |
-| `POST` | `/financiero/egresos/:id/anular` | ADMIN | Anula un egreso con motivo obligatorio y deja registro de auditoría (migración 028). |
-| `GET` | `/financiero/balance` | Autenticado | **Reporte de Balance General Al Día:** Suma de Total Ingresos (pagos y pagos anuales de agua) - Total Egresos, con la cartera pendiente de ambos. |
+| `POST` | `/financiero/agua-anual/obligaciones` | TESORERO | **Pago anual de agua:** genera la obligación del año por cada lote de un usuario activo. La cuota del lote es el valor por hectárea (`valor_hectarea`, o la tarifa `AGUA_ANUAL` vigente al 1 de enero) por sus hectáreas (`superficie_m2 / 10000`), redondeada al centavo. Con `simular: true` devuelve el total y el detalle por lote sin escribir. Si algún lote por emitir no tiene superficie responde `409` con `lotes_sin_superficie` y no emite ninguna. Es idempotente: las obligaciones ya emitidas del año se respetan. |
+| `GET` | `/financiero/agua-anual/resumen?anio=` | TESORERO | Estado del año: emitidas, pagadas, pendientes, total y recaudado; además `lotesSinSuperficie` (bloquean la emisión) y `lotesSuperficieProvisional` (lotes con la superficie de demostración que hay que corregir). |
+| `GET` | `/financiero/agua-anual/obligaciones/:personaId` | TESORERO | Obligaciones anuales de agua pendientes de un usuario, de la más antigua a la más reciente. |
+| `POST` | `/financiero/agua-anual/pagos` | TESORERO | Registra el pago (solo `TRANSFERENCIA` o `DEPOSITO`, con referencia) de una o varias obligaciones anuales de agua en una transacción atómica. |
+| `GET` | `/financiero/egresos` | TESORERO | Gastos y compras realizadas por la Junta. |
+| `POST` | `/financiero/egresos` | TESORERO | Registrar gasto o compra con número de factura. |
+| `POST` | `/financiero/egresos/:id/anular` | TESORERO | Anula un egreso con motivo obligatorio y deja registro de auditoría (migración 028). |
+| `GET` | `/financiero/balance` | TESORERO | **Reporte de Balance General Al Día:** Suma de Total Ingresos (pagos y pagos anuales de agua) - Total Egresos, con la cartera pendiente de ambos. |
 
 ---
 

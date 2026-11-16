@@ -51,7 +51,8 @@ erDiagram
     cuentas ||--o{ cuentas : "crea otras cuentas"
     personas ||--o{ persona_lotes : "se relaciona con"
 
-    personas ||--o{ turnos_riego : "asignado turno"
+    sectores ||--o{ turnos_riego : "tiene turnos"
+    personas ||--o{ sectores : "representa"
     personas ||--o{ asistencias : "registra asistencia"
     personas ||--o{ obligaciones : "tiene obligaciones"
     personas ||--o{ pagos : "realiza pago"
@@ -71,7 +72,6 @@ erDiagram
     %% --------------------------------------------------
     sectores ||--o{ lotes : "contiene"
     lotes ||--o{ persona_lotes : "pertenece a"
-    lotes ||--o| turnos_riego : "asociado a 0..N"
 
     %% --------------------------------------------------
     %% 3. EVENTOS Y COMUNICACIÓN
@@ -128,9 +128,7 @@ erDiagram
 
     turnos_riego {
         bigint id PK
-        bigint persona_id FK
-        bigint lote_id FK
-        string tipo
+        bigint sector_id FK
         tinyint dia_semana
         time hora_inicio
         time hora_fin
@@ -194,10 +192,10 @@ erDiagram
 - **`cargos_directiva` & `miembros_directiva`**: Mantiene la historia de directivas (Presidente, Tesorero, Secretario, Vocales).
 
 ### 4.2. Dominio de Lotes y Riego
-- **`sectores`**: Sectores geográficos de riego en Patate.
+- **`sectores`**: Sectores geográficos de riego en Patate. `representante_persona_id` es la persona que recibe el turno de agua en nombre del sector (migración 039).
 - **`lotes`**: Terrenos con coordenadas de latitud/longitud aproximadas y radio de error en metros. La superficie se registra en m² (`superficie_m2`) y es obligatoria para crear o editar un lote; las hectáreas (m² ÷ 10.000) se calculan, no se guardan. Fuera de producción, la migración 031 pone 10.000 m² provisionales (con una nota en `observacion`) a los lotes que no tenían superficie; en producción no inventa ninguna: deja la nota "Falta registrar la superficie del lote." y el cobro anual se bloquea hasta completarla.
 - **`persona_lotes`**: Soporta propiedad, copropiedad o representación de lotes.
-- **`turnos_riego`**: Asigna horarios semanales de riego a un usuario (`persona_id`) y su lote; dos turnos del mismo sector no pueden cruzarse. Los turnos adicionales se eliminaron (migración 018). Emplea desactivación lógica (`estado_turno_riego: INACTIVO`) para preservar la trazabilidad histórica de asignaciones y evitar la pérdida de antecedentes en fiscalizaciones.
+- **`turnos_riego`**: Horarios semanales de riego de un sector (`sector_id`); dos turnos activos del mismo sector no pueden cruzarse. `persona_id` y `lote_id` son datos históricos opcionales anteriores a la migración 039. Los turnos adicionales se eliminaron (migración 018). Emplea desactivación lógica (`estado_turno_riego: INACTIVO`) para preservar la trazabilidad histórica de asignaciones y evitar la pérdida de antecedentes en fiscalizaciones.
 
 ### 4.3. Dominio de Asambleas, Mingas, Asistencia y Comunicación
 - **`eventos`**: Asambleas y Mingas (`tipo`). Define si genera multa por ausencia (`genera_multa_ausencia`).

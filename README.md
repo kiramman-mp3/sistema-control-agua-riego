@@ -28,15 +28,15 @@ Las organizaciones comunitarias de riego suelen gestionar su padrón de socios, 
 ### ¿Qué hace?
 1. El administrador inicia sesión de manera segura con su cédula y credenciales protegidas con bloqueo ante intentos fallidos.
 2. Registra y actualiza el padrón de socios con sus datos personales, cédula ecuatoriana validada y lotes georreferenciados en el mapa interactivo.
-3. Planifica la distribución semanal de turnos de riego por sector, impidiendo automáticamente la asignación simultánea de dos usuarios al mismo tramo de caudal.
+3. Planifica la distribución semanal de turnos de riego por sector, con un representante que recibe el agua en nombre del sector, e impide automáticamente que dos turnos del mismo sector se crucen.
 4. Convoca a asambleas y mingas, publicando los avisos formales en el grupo oficial de WhatsApp y generando la hoja de asistencia en PDF para firmas en territorio.
 5. Toma la asistencia digital durante o después del evento; el sistema identifica a los inasistentes sin justificación y genera automáticamente las multas financieras correspondientes.
 6. En ventanilla de caja, cobra cuotas de mantenimiento, multas y consumos pendientes, emitiendo comprobantes digitales en PDF y registrando el egreso de fondos de la Junta.
 7. Al cierre de cada ciclo, emite masivamente las obligaciones de agua anual a los socios activos con lote asignado.
-8. Cada socio accede a su portal privado para consultar sus deudas, revisar sus turnos de riego asignados y verificar el historial de sus aportes.
+8. Cada socio accede a su portal privado para consultar sus deudas, consultar los turnos de riego de sus sectores y verificar el historial de sus aportes.
 
 ### ¿Para quién está pensado?
-- **Directiva de la Junta de Agua y Riego:** Presidente, tesorero y recaudador, quienes administran el cobro en caja, la cobranza de multas, la tesorería y las convocatorias.
+- **Directiva de la Junta de Agua y Riego:** Presidente, tesorero y demás miembros. Los administradores gestionan usuarios, turnos, convocatorias y noticias; el **tesorero** tiene además acceso exclusivo a las finanzas (cobro en caja, multas, tarifas, egresos y balance).
 - **Socios y regantes comunitarios:** Agricultores y familias que necesitan consultar el estado de su cuenta, verificar sus turnos asignados de agua y enterarse de eventos comunitarios sin tener que acudir presencialmente a la sede.
 
 ---
@@ -331,19 +331,21 @@ La lista completa para un VPS (DNS, usuario de MySQL, SSH, HTTPS, primer ingreso
 | `GET` | `/api/usuarios` | ADMIN | Lista paginada del padrón con filtros de búsqueda |
 | `POST` | `/api/usuarios` | ADMIN | Registra un nuevo socio y genera cuenta de acceso |
 | `GET` | `/api/lotes` | ADMIN | Catastro de predios y georreferenciación |
-| `GET` | `/api/turnos/semanal` | ADMIN / USUARIO | Consulta de la grilla de turnos de riego por sector |
+| `GET` | `/api/turnos` | Autenticado | Turnos de riego por sector (un usuario ve los de sus sectores) |
+| `PUT` | `/api/turnos/sectores/:id/representante` | ADMIN / TESORERO | Designa al representante del sector que recibe el turno de agua |
 | `GET` | `/api/eventos` | ADMIN / USUARIO | Listado de asambleas y mingas comunitarias |
 | `GET` | `/api/eventos/publicos/pasados` | Público | Asambleas o mingas ya realizadas (cerradas o con fecha vencida; `tipo`, `pagina`, `limite`, y opcionales `sector_id` y `subtipo` ORDINARIA/EXTRAORDINARIA para asambleas), con la convocatoria y el acta firmadas si existen; el archivo del acta exige sesión |
 | `POST` | `/api/eventos/:id/asistencia` | ADMIN | Registro masivo de asistencia (presente, ausente, justificado) |
-| `GET` | `/api/finanzas/resumen` | ADMIN | Métricas financieras globales del panel de control |
-| `POST` | `/api/finanzas/cobros` | ADMIN | Registra el pago en caja y emite comprobante en PDF |
+| `GET` | `/api/finanzas/resumen` | TESORERO | Métricas financieras globales del panel de control |
+| `POST` | `/api/finanzas/cobros` | TESORERO | Registra el pago en caja y emite comprobante en PDF |
 | `GET` | `/api/mi-cuenta/resumen` | USUARIO | Estado de cuenta exclusivo del socio autenticado |
 
 ### Reglas de Negocio Clave
 
 | Módulo | Regla implementada |
 |---|---|
-| **Turnos de Riego** | No se permite que coincidan dos turnos en el mismo sector con cruce de horario. |
+| **Turnos de Riego** | Los turnos son por sector, con un representante. No se permite que se crucen dos turnos del mismo sector. |
+| **Finanzas** | Solo el rol `TESORERO` accede a cobros, pagos, tarifas, egresos, balance e historial financiero. Un `ADMIN` no puede crear ni modificar la cuenta del tesorero mientras haya uno activo. |
 | **Asambleas y Mingas** | Al marcar un socio como ausente no justificado, el sistema genera automáticamente una multa financiera según la tarifa fijada para el evento. |
 | **Cobro en Caja** | El cobro registra el desglose de conceptos pagados, actualiza el saldo deudor de forma atómica en una única transacción y emite recibo foliado con hash de seguridad. |
 | **Facturación Anual** | El agua se cobra una vez al año **por hectárea**: cada lote de un socio activo paga el valor por hectárea (tarifa `AGUA_ANUAL`) por sus hectáreas (m² ÷ 10.000), redondeado al centavo. La superficie es obligatoria; si algún lote por emitir no la tiene, no se emite nada y se lista cuáles son para completarlos. Corregir la superficie recalcula la cuota pendiente. La deuda sigue al lote: al transferirlo, las cuotas pendientes pasan al nuevo titular. Las multas por inasistencia siguen siendo por persona. |
@@ -371,7 +373,7 @@ Todos los formularios del panel siguen las mismas reglas para evitar errores de 
 Los cobros en caja piden confirmar el monto, la persona y el medio de pago antes de registrarse.
 
 ### Migraciones y Base de Datos
-El proyecto cuenta con 37 migraciones versionadas y aplicadas de forma secuencial (`backend/database/migrations/`). Cada cambio estructural en tablas, índices, catálogos o restricciones foráneas se realiza a través de un archivo nuevo numerado, impidiendo inconsistencias entre entornos de desarrollo y producción.
+El proyecto cuenta con 39 migraciones versionadas y aplicadas de forma secuencial (`backend/database/migrations/`). Cada cambio estructural en tablas, índices, catálogos o restricciones foráneas se realiza a través de un archivo nuevo numerado, impidiendo inconsistencias entre entornos de desarrollo y producción.
 
 ### Manejo de Fechas y Zona Horaria
 La Junta de Agua opera en la zona horaria oficial de Ecuador continental (`America/Guayaquil`, UTC-5). En la base de datos:
@@ -383,7 +385,8 @@ La Junta de Agua opera en la zona horaria oficial de Ecuador continental (`Ameri
 ## 🗺️ Roadmap de Funcionalidades
 
 - [x] Padrón de regantes y catastro de predios con mapa interactivo.
-- [x] Programación semanal de turnos de riego sin cruces de horario.
+- [x] Programación semanal de turnos de riego por sector, con representante y sin cruces de horario.
+- [x] Rol de tesorero con acceso exclusivo a las finanzas.
 - [x] Convocatorias y registro de asistencia para asambleas y mingas.
 - [x] Generación automática de multas por inasistencia no justificada.
 - [x] Módulo de cobro en caja con generación de comprobantes en PDF.
