@@ -20,6 +20,7 @@ import {
   RespuestaPaginada,
   SectorItem,
   TurnoItem,
+  CronogramaSector,
 } from '../models/api-payloads';
 
 type RespuestaCredencial = RespuestaMensaje & { passwordTemporal: string };
@@ -193,12 +194,25 @@ export class AdminService {
     return this.http.get<RespuestaApi<TurnoItem[]>>(`${this.baseUrl}/turnos`, { params });
   }
 
-  asignarTurno(
-    payload: object,
-  ): Observable<RespuestaMensaje & { turnoId: number; obligacionId: number | null }> {
-    return this.http.post<RespuestaMensaje & { turnoId: number; obligacionId: number | null }>(
+  /** Sectores con su representante y sus turnos de la semana (solo directiva). */
+  getCronograma(): Observable<RespuestaApi<CronogramaSector[]>> {
+    return this.http.get<RespuestaApi<CronogramaSector[]>>(`${this.baseUrl}/turnos/cronograma`);
+  }
+
+  crearTurno(payload: object): Observable<RespuestaMensaje & { turnoId: number }> {
+    return this.http.post<RespuestaMensaje & { turnoId: number }>(
       `${this.baseUrl}/turnos`,
       payload,
+    );
+  }
+
+  /** Designa al representante del sector que recibe el turno; con null se quita. */
+  asignarRepresentante(sectorId: number, personaId: number | null): Observable<RespuestaMensaje> {
+    return this.http.put<RespuestaMensaje>(
+      `${this.baseUrl}/turnos/sectores/${sectorId}/representante`,
+      {
+        persona_id: personaId,
+      },
     );
   }
 

@@ -1,21 +1,17 @@
 const { test, expect } = require('@playwright/test');
 const { aviso, dialogo, leerEstado } = require('./ayudas');
 
-// El turno de riego se asigna, se valida contra cruces de horario, se consulta en tres vistas, se edita y se elimina.
+// El turno de riego es del sector: se crea, se valida contra cruces de horario, se consulta en tres vistas,
+// se edita y se elimina; cada sector tiene un representante que recibe el agua en nombre de todos.
 test.describe.configure({ mode: 'serial' });
 
+const SECTOR = 'La Merced';
 const nombreCompleto = (u) => `${u.nombres} ${u.apellidos}`;
 
-
-async function abrirAsignacion(page, usuario) {
+async function abrirNuevoTurno(page) {
   await page.goto('/admin/turnos');
-  await page.getByRole('button', { name: 'Asignar turno' }).click();
-  const modal = page.getByRole('dialog');
-  await modal.getByLabel('Buscar usuario').fill(usuario.cedula);
-  await modal.getByRole('listbox', { name: 'Usuarios' }).getByRole('option').first().click();
-  await expect(modal.locator('#turno-lote')).toBeEnabled();
-  await modal.locator('#turno-lote').selectOption({ index: 1 });
-  return modal;
+  await page.getByRole('button', { name: 'Nuevo turno' }).first().click();
+  return page.getByRole('dialog');
 }
 
 async function llenarHorario(modal, { dia, inicio, fin }) {
@@ -24,61 +20,56 @@ async function llenarHorario(modal, { dia, inicio, fin }) {
   await modal.locator('#turno-fin').fill(fin);
 }
 
-test('asignar un turno exige usuario y lote, y rechaza un horario que cruza la medianoche por más de 12 horas', async ({ page }) => {
-  const { receptor } = leerEstado();
-  await page.goto('/admin/turnos');
-  await page.getByRole('button', { name: 'Asignar turno' }).click();
-  const modal = page.getByRole('dialog');
+test('un turno exige el sector y rechaza un horario que cruza la medianoche por más de 12 horas', async ({ page }) => {
+  const modal = await abrirNuevoTurno(page);
   await modal.getByRole('button', { name: 'Guardar turno' }).click();
-  await expect(aviso(page, 'Debe seleccionar un usuario.')).toBeVisible();
-  await modal.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(aviso(page, 'Debe seleccionar el sector.')).toBeVisible();
 
-  const formulario = await abrirAsignacion(page, receptor);
-  await llenarHorario(formulario, { dia: 'Miércoles', inicio: '09:00', fin: '08:00' });
-  await formulario.getByRole('button', { name: 'Guardar turno' }).click();
+  await modal.locator('#turno-sector').selectOption({ label: SECTOR });
+  await llenarHorario(modal, { dia: 'Miércoles', inicio: '09:00', fin: '08:00' });
+  await modal.getByRole('button', { name: 'Guardar turno' }).click();
   await expect(aviso(page, 'Un turno que cruza la medianoche puede durar como máximo 12 horas.')).toBeVisible();
-  await expect(formulario).toBeVisible();
+  await expect(modal).toBeVisible();
 });
 
-// La base sembrada ya reparte el agua de cada sector entre las 05:00 y las 21:00: los turnos de estas pruebas van después.
-test('un turno válido queda asignado al lote del usuario y aparece en la tabla', async ({ page }) => {
-  const { receptor } = leerEstado();
-  const formulario = await abrirAsignacion(page, receptor);
-  await llenarHorario(formulario, { dia: 'Miércoles', inicio: '22:00', fin: '23:00' });
-  await formulario.locator('#turno-obs').fill('Riego por la toma norte (prueba E2E)');
-  await formulario.getByRole('button', { name: 'Guardar turno' }).click();
-  await expect(aviso(page, /Turno de agua asignado|asignado/i)).toBeVisible();
+// La base sembrada ya reparte el agua de cada sector con tres horarios a la semana: los de estas pruebas van de noche.
+test('un turno válido queda en el sector y aparece en la tabla', async ({ page }) => {
+  const modal = await abrirNuevoTurno(page);
+  await modal.locator('#turno-sector').selectOption({ label: SECTOR });
+  await llenarHorario(modal, { dia: 'Miércoles', inicio: '22:00', fin: '23:00' });
+  await modal.locator('#turno-obs').fill('Riego por la toma norte (prueba E2E)');
+  await modal.getByRole('button', { name: 'Guardar turno' }).click();
+  await expect(aviso(page, /Turno de agua creado/i)).toBeVisible();
 
-  await page.getByLabel('Buscar turno').fill(receptor.nombres);
-  const fila = page.locator('tbody tr');
+  await page.getByRole('group', { name: 'Filtrar por sector' }).getByRole('button', { name: SECTOR }).click();
+  await page.locator('select[aria-label="Día"]').selectOption({ label: 'Miércoles' });
+  const fila = page.locator('tbody tr').filter({ hasText: '22:00' });
   await expect(fila).toHaveCount(1);
-  await expect(fila).toContainText(nombreCompleto(receptor));
-  await expect(fila).toContainText('Miércoles');
-  await expect(fila).toContainText('22:00');
+  await expect(fila).toContainText(SECTOR);
   await expect(fila).toContainText('23:00');
 });
 
 test('dos turnos que se cruzan en el mismo sector no se permiten', async ({ page }) => {
-  const { receptor } = leerEstado();
-  const formulario = await abrirAsignacion(page, receptor);
-  await llenarHorario(formulario, { dia: 'Miércoles', inicio: '22:30', fin: '23:30' });
-  await formulario.getByRole('button', { name: 'Guardar turno' }).click();
+  const modal = await abrirNuevoTurno(page);
+  await modal.locator('#turno-sector').selectOption({ label: SECTOR });
+  await llenarHorario(modal, { dia: 'Miércoles', inicio: '22:30', fin: '23:30' });
+  await modal.getByRole('button', { name: 'Guardar turno' }).click();
   await expect(page.locator('.toast--error, .toast--danger, .toast--warning').first()).toBeVisible();
-  await expect(formulario).toBeVisible();
+  await expect(modal).toBeVisible();
 
   // Un horario contiguo (sin solaparse) sí es válido.
-  await llenarHorario(formulario, { dia: 'Miércoles', inicio: '23:00', fin: '23:30' });
-  await formulario.getByRole('button', { name: 'Guardar turno' }).click();
-  await expect(formulario).toBeHidden();
+  await llenarHorario(modal, { dia: 'Miércoles', inicio: '23:00', fin: '23:30' });
+  await modal.getByRole('button', { name: 'Guardar turno' }).click();
+  await expect(modal).toBeHidden();
 });
 
 test('la ficha del turno muestra sus datos y permite editarlo', async ({ page }) => {
-  const { receptor } = leerEstado();
   await page.goto('/admin/turnos');
-  await page.getByLabel('Buscar turno').fill(receptor.nombres);
-  await page.getByRole('button', { name: `Ver turno de ${nombreCompleto(receptor)}` }).first().click();
+  await page.getByRole('group', { name: 'Filtrar por sector' }).getByRole('button', { name: SECTOR }).click();
+  await page.locator('select[aria-label="Día"]').selectOption({ label: 'Miércoles' });
+  await page.locator('tbody tr').filter({ hasText: '22:00' }).getByRole('button', { name: /^Ver turno de / }).click();
   const ficha = page.getByRole('dialog');
-  await expect(ficha).toContainText(nombreCompleto(receptor));
+  await expect(ficha).toContainText(SECTOR);
   await expect(ficha).toContainText('Riego por la toma norte (prueba E2E)');
   await ficha.getByRole('button', { name: /Editar/ }).click();
 
@@ -93,53 +84,66 @@ test('la ficha del turno muestra sus datos y permite editarlo', async ({ page })
   await edicion.getByRole('button', { name: /Guardar/ }).click();
   await expect(aviso(page, /Turno actualizado|actualizado/i)).toBeVisible();
 
-  const fila = page.locator('tbody tr').filter({ hasText: 'Jueves' });
+  // La lista sigue filtrada por miércoles: se pasa a jueves para ver el turno editado.
+  await page.locator('select[aria-label="Día"]').selectOption({ label: 'Jueves' });
+  const fila = page.locator('tbody tr').filter({ hasText: 'Jueves' }).filter({ hasText: '23:45' });
+  await expect(fila).toHaveCount(1);
   await expect(fila).toContainText('23:00');
-  await expect(fila).toContainText('23:45');
 });
 
-test('el turno se ve en el calendario semanal', async ({ page }) => {
+test('el representante del sector se designa y se ve en la tabla y el calendario', async ({ page }) => {
   const { receptor } = leerEstado();
   await page.goto('/admin/turnos');
+  const tarjeta = page.locator('.sector-rep').filter({ hasText: SECTOR });
+  await tarjeta.getByRole('button', { name: /Cambiar|Designar/ }).click();
+
+  const modal = page.getByRole('dialog');
+  await modal.getByLabel('Buscar usuario').fill(receptor.cedula);
+  await modal.getByRole('listbox', { name: 'Usuarios' }).getByRole('option').first().click();
+  await modal.getByRole('button', { name: 'Designar' }).click();
+  await expect(aviso(page, /Representante del sector designado/i)).toBeVisible();
+  await expect(tarjeta).toContainText(nombreCompleto(receptor));
+
+  await page.getByRole('group', { name: 'Filtrar por sector' }).getByRole('button', { name: SECTOR }).click();
+  await expect(page.locator('tbody tr').first()).toContainText(nombreCompleto(receptor));
 
   await page.getByRole('tab', { name: 'Calendario semanal' }).click();
   await expect(page.getByText(receptor.nombres).first()).toBeVisible();
-
   await page.getByRole('tab', { name: 'Tabla' }).click();
-  await expect(page.locator('tbody tr').first()).toBeVisible();
 });
 
 test('la tabla de turnos filtra por sector, día y texto', async ({ page }) => {
   const { receptor } = leerEstado();
-  // El lote del receptor se creó en La Merced (03-sectores-y-lotes.spec.js).
-  const sector = 'La Merced';
   await page.goto('/admin/turnos');
 
-  await page.getByRole('group', { name: 'Filtrar por sector' }).getByRole('button', { name: sector }).click();
-  // El sector sembrado tiene muchos turnos: se busca al usuario de la prueba dentro del sector.
+  await page.getByRole('group', { name: 'Filtrar por sector' }).getByRole('button', { name: SECTOR }).click();
+  // Buscar por el representante deja todos los turnos de su sector.
   await page.getByLabel('Buscar turno').fill(receptor.nombres);
   const filas = page.locator('tbody tr');
-  await expect(filas).toHaveCount(2);
   await expect(filas.first()).toContainText(receptor.nombres);
+  const total = await filas.count();
+  expect(total).toBeGreaterThan(1);
 
-  await page.getByLabel(/^\s*Día\s*\*?\s*$/).selectOption({ label: 'Jueves' });
-  await expect(filas).toHaveCount(1);
-  await page.getByLabel(/^\s*Día\s*\*?\s*$/).selectOption({ label: 'Lunes' });
-  await expect(page.getByText(/Sin coincidencias|No hay turnos/i).first()).toBeVisible();
+  // La base sembrada puede tener otro turno el jueves: se identifica el de la prueba por su horario.
+  await page.locator('select[aria-label="Día"]').selectOption({ label: 'Jueves' });
+  await expect(filas.filter({ hasText: '23:45' })).toHaveCount(1);
+  await expect(filas.filter({ hasNotText: 'Jueves' })).toHaveCount(0);
 });
 
 test('eliminar un turno pide confirmación y lo quita de la lista', async ({ page }) => {
-  const { receptor } = leerEstado();
   await page.goto('/admin/turnos');
-  await page.getByLabel('Buscar turno').fill(receptor.nombres);
-  await expect(page.locator('tbody tr')).toHaveCount(2);
+  await page.getByRole('group', { name: 'Filtrar por sector' }).getByRole('button', { name: SECTOR }).click();
+  await page.locator('select[aria-label="Día"]').selectOption({ label: 'Jueves' });
+  const turno = page.locator('tbody tr').filter({ hasText: '23:45' });
+  await expect(turno).toHaveCount(1);
 
-  await page.getByRole('button', { name: `Eliminar turno de ${nombreCompleto(receptor)}` }).first().click();
+  const eliminar = turno.getByRole('button', { name: `Eliminar turno de ${SECTOR}` });
+  await eliminar.click();
   await dialogo(page).getByRole('button', { name: 'Cancelar' }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(2);
+  await expect(turno).toHaveCount(1);
 
-  await page.getByRole('button', { name: `Eliminar turno de ${nombreCompleto(receptor)}` }).first().click();
+  await eliminar.click();
   await dialogo(page).getByRole('button', { name: 'Eliminar' }).click();
   await expect(aviso(page, /Turno eliminado|eliminado/i)).toBeVisible();
-  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await expect(turno).toHaveCount(0);
 });

@@ -51,10 +51,10 @@ export interface LoteItem {
   propietarios?: string;
 }
 
+/** Turno de riego: horario semanal de un sector, que recibe su representante. */
 export interface TurnoItem {
   id: number;
-  persona_id: number;
-  lote_id: number;
+  sector_id: number;
   dia_semana: number;
   hora_inicio: string;
   hora_fin: string;
@@ -62,14 +62,9 @@ export interface TurnoItem {
   vigencia_hasta?: string;
   estado: 'ACTIVO' | 'INACTIVO';
   observacion?: string;
-  usuario_nombre?: string;
-  cedula?: string;
-  lote_codigo?: string;
-  sector_id?: number;
   sector_nombre?: string;
-  superficie_m2?: number | null;
-  nombres?: string;
-  apellidos?: string;
+  representante_persona_id?: number | null;
+  representante_nombre?: string | null;
 }
 
 export interface EventoItem {
@@ -102,10 +97,9 @@ export interface EventoItem {
   lista_asistencia_firmada_url?: string | null;
 }
 
-/** Turno del cronograma público: solo lote y horario, sin datos personales. */
+/** Turno del cronograma público: solo el horario del sector, sin datos personales. */
 export interface TurnoCronogramaPublico {
   id: number;
-  lote_codigo: string;
   hora_inicio: string;
   hora_fin: string;
   duracion_minutos: number;
@@ -120,6 +114,19 @@ export interface CronogramaSectorPublico {
   total_horas: number;
   total_lotes: number;
   dias: { dia_semana: number; dia_nombre: string; turnos: TurnoCronogramaPublico[] }[];
+}
+
+/** Turno del cronograma completo de la directiva (GET /turnos/cronograma). */
+export interface TurnoCronograma extends TurnoCronogramaPublico {
+  observacion: string | null;
+}
+
+/** Sector del cronograma completo, con su representante (GET /turnos/cronograma). */
+export interface CronogramaSector extends Omit<CronogramaSectorPublico, 'dias'> {
+  representante_persona_id: number | null;
+  representante_nombre: string | null;
+  representante_cedula: string | null;
+  dias: { dia_semana: number; dia_nombre: string; turnos: TurnoCronograma[] }[];
 }
 
 export interface ObligacionItem {

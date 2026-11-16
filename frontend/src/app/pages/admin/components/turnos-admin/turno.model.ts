@@ -14,19 +14,14 @@ export const DIAS_SEMANA: DiaSemana[] = [
   { valor: 7, label: 'Domingo', corto: 'Dom' },
 ];
 
-/** Turno de riego listo para mostrarse (nombres de usuario, lote, sector y día resueltos). */
+/** Turno de riego listo para mostrarse (sector, representante y día resueltos). */
 export interface Turno {
   id: number;
-  persona_id: number;
-  lote_id: number;
-  sector_id?: number;
+  sector_id: number;
   dia_semana: number;
   dia: string;
-  usuario: string;
-  cedula?: string;
-  lote: string;
   sector: string;
-  superficie_m2?: number;
+  representante: string;
   horaInicio: string;
   horaFin: string;
   observacion?: string;
@@ -66,10 +61,7 @@ export function filtrarTurnos(turnos: Turno[], f: FiltrosTurno): Turno[] {
   const q = f.busqueda.trim().toLowerCase();
   return turnos.filter(
     (t) =>
-      (!q ||
-        t.usuario.toLowerCase().includes(q) ||
-        t.lote.toLowerCase().includes(q) ||
-        t.sector.toLowerCase().includes(q)) &&
+      (!q || t.representante.toLowerCase().includes(q) || t.sector.toLowerCase().includes(q)) &&
       (!f.dia || t.dia === f.dia) &&
       (!f.sector || t.sector === f.sector),
   );

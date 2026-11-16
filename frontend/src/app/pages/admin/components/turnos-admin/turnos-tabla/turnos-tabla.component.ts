@@ -10,9 +10,8 @@ import { Turno } from '../turno.model';
       <table class="table-custom table-custom--stack">
         <thead>
           <tr>
-            <th>Usuario</th>
-            <th>Lote</th>
             <th>Sector</th>
+            <th>Representante</th>
             <th>Día</th>
             <th>Horario</th>
             <th><span class="sr-only">Acciones</span></th>
@@ -21,13 +20,16 @@ import { Turno } from '../turno.model';
         <tbody>
           @for (t of turnos(); track t.id) {
             <tr>
-              <td data-label="Usuario">
-                <strong>{{ t.usuario }}</strong>
+              <td data-label="Sector">
+                <strong>{{ t.sector }}</strong>
               </td>
-              <td data-label="Lote">
-                <span class="pill pill--primary">{{ t.lote }}</span>
+              <td data-label="Representante">
+                @if (t.representante) {
+                  {{ t.representante }}
+                } @else {
+                  <span class="text-muted">Sin designar</span>
+                }
               </td>
-              <td data-label="Sector">{{ t.sector }}</td>
               <td data-label="Día">{{ t.dia }}</td>
               <td data-label="Horario">
                 <span class="time-range"
@@ -41,7 +43,7 @@ import { Turno } from '../turno.model';
                   class="icon-btn"
                   (click)="ver.emit(t)"
                   title="Ver detalle"
-                  [attr.aria-label]="'Ver turno de ' + t.usuario"
+                  [attr.aria-label]="'Ver turno de ' + t.sector + ' el ' + t.dia"
                 >
                   <i class="ri-eye-line" aria-hidden="true"></i>
                 </button>
@@ -50,7 +52,7 @@ import { Turno } from '../turno.model';
                   class="icon-btn"
                   (click)="editar.emit(t)"
                   title="Editar"
-                  [attr.aria-label]="'Editar turno de ' + t.usuario"
+                  [attr.aria-label]="'Editar turno de ' + t.sector"
                 >
                   <i class="ri-edit-line" aria-hidden="true"></i>
                 </button>
@@ -59,7 +61,7 @@ import { Turno } from '../turno.model';
                   class="icon-btn icon-btn--danger"
                   (click)="eliminar.emit(t)"
                   title="Eliminar"
-                  [attr.aria-label]="'Eliminar turno de ' + t.usuario"
+                  [attr.aria-label]="'Eliminar turno de ' + t.sector"
                 >
                   <i class="ri-delete-bin-line" aria-hidden="true"></i>
                 </button>

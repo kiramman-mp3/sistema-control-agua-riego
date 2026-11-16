@@ -227,32 +227,37 @@ async function crearSectoresYLotes(conexion, azar, personas, fechaInicio) {
 }
 
 /**
- * Turnos semanales sin solapes dentro de cada sector: el agua de un ramal se entrega a un lote a la vez,
- * de 05:00 a 21:00, con una duración según la superficie.
+ * Turnos semanales de riego por sector, sin solapes dentro del sector: el agua de un ramal llega a todo
+ * el sector a la vez, así que cada sector recibe tres horarios a la semana, en días distintos según el sector.
  */
-async function crearTurnos(conexion, lotes, vigenciaDesde) {
-  const INICIO = 5 * 60;
-  const FIN = 21 * 60;
+async function crearTurnos(conexion, sectores, lotes, vigenciaDesde) {
   const hora = (min) => `${dosDigitos(Math.floor(min / 60))}:${dosDigitos(min % 60)}:00`;
   const filas = [];
-  const porSector = new Map();
-  for (const lote of lotes) {
-    if (!porSector.has(lote.sector.id)) porSector.set(lote.sector.id, []);
-    porSector.get(lote.sector.id).push(lote);
-  }
-  for (const lotesSector of porSector.values()) {
-    let dia = 1;
-    let minuto = INICIO;
-    for (const lote of lotesSector) {
-      const duracion = Math.min(3, Math.max(1, Math.ceil(lote.superficie / 10000))) * 60;
-      if (minuto + duracion > FIN) { dia++; minuto = INICIO; }
-      if (dia > 7) break; // El ramal ya no tiene horas libres en la semana.
-      filas.push([lote.persona.id, lote.id, dia, hora(minuto), hora(minuto + duracion), vigenciaDesde, 'ACTIVO']);
-      minuto += duracion;
+  sectores.forEach((sector, i) => {
+    const lotesDelSector = lotes.filter((l) => l.sector.id === sector.id).length;
+    const horas = Math.min(6, Math.max(2, Math.ceil(lotesDelSector / 8)));
+    for (const desfase of [0, 2, 4]) {
+      const inicio = (5 + (i % 3) * 2) * 60;
+      filas.push([sector.id, ((i + desfase) % 7) + 1, hora(inicio), hora(inicio + horas * 60), vigenciaDesde, 'ACTIVO']);
     }
-  }
-  await insertarFilas(conexion, 'INSERT INTO turnos_riego (persona_id, lote_id, dia_semana, hora_inicio, hora_fin, vigencia_desde, estado) VALUES ?', filas);
+  });
+  await insertarFilas(conexion, 'INSERT INTO turnos_riego (sector_id, dia_semana, hora_inicio, hora_fin, vigencia_desde, estado) VALUES ?', filas);
   return filas.length;
+}
+
+/**
+ * El representante de cada sector es el usuario activo con más lotes en él: recibe el turno de agua
+ * en nombre de todos. Se designa al final, cuando ya se conocen los retiros y las compraventas.
+ */
+async function designarRepresentantes(conexion, sectores, lotes, retiros) {
+  for (const sector of sectores) {
+    const lotesPorPersona = new Map();
+    for (const lote of lotes.filter((l) => l.sector.id === sector.id && !retiros.has(l.persona.id))) {
+      lotesPorPersona.set(lote.persona.id, (lotesPorPersona.get(lote.persona.id) ?? 0) + 1);
+    }
+    const [representante] = [...lotesPorPersona].sort((x, y) => y[1] - x[1] || x[0] - y[0]);
+    if (representante) await conexion.query('UPDATE sectores SET representante_persona_id = ? WHERE id = ?', [representante[0], sector.id]);
+  }
 }
 
 /**
@@ -376,7 +381,6 @@ async function venderLotes(conexion, azar, { lotes, compradores, fecha, cuentaId
       'INSERT INTO persona_lotes (persona_id, lote_id, tipo_relacion, porcentaje, fecha_desde, observacion) VALUES (?, ?, ?, ?, ?, ?)',
       [comprador.id, lote.id, 'PROPIETARIO', 100, fecha, `Compraventa del terreno. Dueño anterior: ${lote.persona.apellidos} ${lote.persona.nombres}`]
     );
-    await conexion.query("UPDATE turnos_riego SET persona_id = ? WHERE lote_id = ? AND estado = 'ACTIVO'", [comprador.id, lote.id]);
     const deuda = await finanzas.transferirDeudaAnualDeLote(conexion, { loteId: lote.id, personaId: comprador.id });
     deudaTraspasada += deuda.total;
     lote.persona = personasPorId.get(comprador.id);
@@ -538,8 +542,8 @@ async function sembrar(conexion, { hoy = hoyEcuador(), semilla = 2026, totalUsua
     log('[seed] Usuarios, cuentas, sectores y lotes...');
     const { personas, admin, tesorero, demo, cuentas } = await crearPersonasYCuentas(conexion, azar, { totalUsuarios, password });
     const personasPorId = new Map(personas.map((p) => [p.id, p]));
-    const { lotes } = await crearSectoresYLotes(conexion, azar, personas, fechaInicio);
-    const turnos = await crearTurnos(conexion, lotes, fechaInicio);
+    const { sectores, lotes } = await crearSectoresYLotes(conexion, azar, personas, fechaInicio);
+    const turnos = await crearTurnos(conexion, sectores, lotes, fechaInicio);
 
     log('[seed] Tarifas...');
     const agua = await finanzas.conceptoPorCodigo(conexion, 'AGUA_ANUAL');
@@ -608,6 +612,8 @@ async function sembrar(conexion, { hoy = hoyEcuador(), semilla = 2026, totalUsua
         if (await pagarPendientes(conexion, azar, persona, fecha, admin.cuentaId)) resumen.pagos++;
       }
     }
+
+    await designarRepresentantes(conexion, sectores, lotes, retiros);
 
     // Errores de digitación detectados en caja: se anula el pago y se vuelve a cobrar.
     const [recientes] = await conexion.query(

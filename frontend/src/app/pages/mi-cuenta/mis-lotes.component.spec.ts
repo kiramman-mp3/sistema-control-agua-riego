@@ -21,8 +21,7 @@ const lote = (parcial: Partial<LoteItem>): LoteItem => ({
 
 const turno = (parcial: Partial<TurnoItem>): TurnoItem => ({
   id: 1,
-  persona_id: 7,
-  lote_id: 1,
+  sector_id: 1,
   dia_semana: 2,
   hora_inicio: '06:00:00',
   hora_fin: '08:30:00',
@@ -31,13 +30,19 @@ const turno = (parcial: Partial<TurnoItem>): TurnoItem => ({
 });
 
 describe('lotesConTurnos', () => {
-  it('reparte cada turno en su lote y los ordena por día y hora', () => {
+  it('reparte cada turno en los lotes de su sector y los ordena por día y hora', () => {
     const resultado = lotesConTurnos(
-      [lote({ id: 1 }), lote({ id: 2, codigo: 'LJB-014' })],
+      [lote({ id: 1 }), lote({ id: 2, sector_id: 2, codigo: 'LJB-014' })],
       [
-        turno({ id: 10, lote_id: 1, dia_semana: 5, hora_inicio: '06:00:00', hora_fin: '07:00:00' }),
-        turno({ id: 11, lote_id: 2, dia_semana: 1 }),
-        turno({ id: 12, lote_id: 1, dia_semana: 2 }),
+        turno({
+          id: 10,
+          sector_id: 1,
+          dia_semana: 5,
+          hora_inicio: '06:00:00',
+          hora_fin: '07:00:00',
+        }),
+        turno({ id: 11, sector_id: 2, dia_semana: 1 }),
+        turno({ id: 12, sector_id: 1, dia_semana: 2 }),
       ],
     );
     expect(resultado[0].turnos.map((t) => [t.id, t.dia, t.horario])).toEqual([
@@ -83,10 +88,13 @@ describe('Mis lotes', () => {
     const getMisLotes = vi.fn(() =>
       of({
         status: 'OK',
-        data: [lote({ id: 1 }), lote({ id: 2, codigo: 'LJB-014', latitud_aproximada: null })],
+        data: [
+          lote({ id: 1 }),
+          lote({ id: 2, sector_id: 2, codigo: 'LJB-014', latitud_aproximada: null }),
+        ],
       }),
     );
-    const getMisTurnos = vi.fn(() => of({ status: 'OK', data: [turno({ lote_id: 2 })] }));
+    const getMisTurnos = vi.fn(() => of({ status: 'OK', data: [turno({ sector_id: 2 })] }));
     const fixture = crear({ getMisLotes, getMisTurnos });
     expect(getMisLotes).toHaveBeenCalledWith(7);
     expect(getMisTurnos).toHaveBeenCalledWith(7);
@@ -96,10 +104,10 @@ describe('Mis lotes', () => {
     expect(tarjetas).toHaveLength(2);
     expect(el.querySelector('.portal-cabecera__lead')?.textContent).toContain('2 lotes');
     expect(el.querySelector('.portal-cabecera__lead')?.textContent).toContain(
-      '1 turno de riego asignado',
+      '1 turno de riego en su sector',
     );
     // El primero no tiene turnos; el segundo no tiene ubicación.
-    expect(tarjetas[0].textContent).toContain('no tiene turnos de riego asignados');
+    expect(tarjetas[0].textContent).toContain('aún no tiene turnos de riego');
     expect(tarjetas[0].querySelector('app-lotes-map')).not.toBeNull();
     expect(tarjetas[1].textContent).toContain('Martes');
     expect(tarjetas[1].textContent).toContain('aún no tiene ubicación');

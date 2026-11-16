@@ -1,18 +1,16 @@
-import { Component, DestroyRef, OnInit, inject, output, signal } from '@angular/core';
+import { Component, OnInit, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, catchError, debounceTime, of, switchMap, tap } from 'rxjs';
 import { AdminService } from '../../../../../core/services/admin.service';
 import { NotificationService } from '../../../../../core/services/notification.service';
-import { LoteItem, PersonaListado, TurnoItem } from '../../../../../core/models/api-payloads';
+import { SectorItem } from '../../../../../core/models/api-payloads';
 import { errorHorarioTurno } from '../../../../../core/utils/turnos';
 import { ModalComponent } from '../../../../../shared/ui/modal.component';
 import { DIAS_SEMANA } from '../turno.model';
 import { AYUDAS_FORMULARIO } from '../../../../../core/directives/formularios';
 
 /**
- * Asignación de un turno de riego: se busca el usuario en el servidor (máximo 20 resultados),
- * se elige uno de sus lotes y el horario semanal (sin cruces dentro del sector).
+ * Nuevo turno de riego: se elige el sector y el horario semanal (sin cruces dentro del sector).
+ * El turno lo recibe el representante del sector, no cada usuario.
  */
 @Component({
   selector: 'app-turno-asignar',
@@ -23,73 +21,38 @@ import { AYUDAS_FORMULARIO } from '../../../../../core/directives/formularios';
 export class TurnoAsignarComponent implements OnInit {
   private admin = inject(AdminService);
   private notify = inject(NotificationService);
-  private destroyRef = inject(DestroyRef);
 
   readonly cerrar = output<void>();
   readonly asignado = output<void>();
 
   readonly dias = DIAS_SEMANA;
-  readonly usuarios = signal<PersonaListado[]>([]);
-  /** Total de usuarios activos que coinciden con la búsqueda (el servidor devuelve como máximo 20). */
-  readonly totalUsuarios = signal(0);
-  readonly buscando = signal(false);
-  readonly lotes = signal<LoteItem[]>([]);
-  readonly cargandoLotes = signal(false);
+  readonly sectores = signal<SectorItem[]>([]);
+  readonly cargandoSectores = signal(true);
   readonly guardando = signal(false);
 
-  busqueda = '';
-  seleccionado: PersonaListado | null = null;
-  turno: Partial<TurnoItem> = {
-    persona_id: undefined,
-    lote_id: undefined,
+  turno: {
+    sector_id: number | null;
+    dia_semana: number;
+    hora_inicio: string;
+    hora_fin: string;
+    observacion: string;
+  } = {
+    sector_id: null,
     dia_semana: 1,
     hora_inicio: '08:00',
     hora_fin: '10:00',
     observacion: '',
   };
 
-  private busqueda$ = new Subject<string>();
-
   ngOnInit(): void {
-    // La búsqueda se hace en el servidor: no se descarga el padrón completo.
-    this.busqueda$
-      .pipe(
-        debounceTime(250),
-        tap(() => this.buscando.set(true)),
-        switchMap((termino) =>
-          this.admin.getPersonas(1, 20, termino, 'ACTIVO').pipe(catchError(() => of(null))),
-        ),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((res) => {
-        this.buscando.set(false);
-        this.usuarios.set(res?.data ?? []);
-        this.totalUsuarios.set(res?.pagination?.total ?? res?.data?.length ?? 0);
-        if (!res) this.notify.error('No se pudo buscar usuarios. Revise su conexión.');
-      });
-    this.busqueda$.next('');
-  }
-
-  buscar(termino: string): void {
-    this.busqueda$.next(termino.trim());
-  }
-
-  seleccionar(u: PersonaListado): void {
-    this.seleccionado = u;
-    this.turno.persona_id = u.id;
-    this.turno.lote_id = undefined;
-    this.lotes.set([]);
-    this.cargandoLotes.set(true);
-    this.admin.getLotes(undefined, undefined, u.id).subscribe({
+    this.admin.getSectores().subscribe({
       next: (res) => {
-        const lotes = res?.data ?? [];
-        this.lotes.set(lotes);
-        if (lotes.length) this.turno.lote_id = lotes[0].id;
-        this.cargandoLotes.set(false);
+        this.sectores.set(res?.data ?? []);
+        this.cargandoSectores.set(false);
       },
       error: () => {
-        this.cargandoLotes.set(false);
-        this.notify.error('No se pudieron cargar los lotes del usuario.');
+        this.cargandoSectores.set(false);
+        this.notify.error('No se pudieron cargar los sectores.');
       },
     });
   }
@@ -97,23 +60,22 @@ export class TurnoAsignarComponent implements OnInit {
   guardar(): void {
     if (this.guardando()) return;
     const t = this.turno;
-    if (!t.persona_id) return this.notify.warning('Debe seleccionar un usuario.');
-    if (!t.lote_id) return this.notify.warning('Debe seleccionar un lote para asignar el turno.');
+    if (!t.sector_id) return this.notify.warning('Debe seleccionar el sector.');
     if (!t.hora_inicio || !t.hora_fin)
       return this.notify.warning('Debe definir la hora de inicio y fin.');
     const errorHorario = errorHorarioTurno(t.hora_inicio, t.hora_fin);
     if (errorHorario) return this.notify.warning(errorHorario);
 
     this.guardando.set(true);
-    this.admin.asignarTurno(t).subscribe({
+    this.admin.crearTurno(t).subscribe({
       next: (res) => {
         this.guardando.set(false);
-        this.notify.success(res.message || 'Turno de agua asignado.');
+        this.notify.success(res.message || 'Turno de agua creado.');
         this.asignado.emit();
       },
       error: (err) => {
         this.guardando.set(false);
-        this.notify.error(err.error?.message || 'Error al asignar el turno.');
+        this.notify.error(err.error?.message || 'Error al crear el turno.');
       },
     });
   }

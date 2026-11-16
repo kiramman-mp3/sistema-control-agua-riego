@@ -32,14 +32,14 @@ function coordenada(valor: number | string | null | undefined): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-/** Une cada lote con sus turnos de riego, ordenados por día y hora. */
+/** Une cada lote con los turnos de riego de su sector, ordenados por día y hora. */
 export function lotesConTurnos(lotes: LoteItem[], turnos: TurnoItem[]): LoteConTurnos[] {
   return lotes.map((lote) => ({
     lote,
     latitud: coordenada(lote.latitud_aproximada),
     longitud: coordenada(lote.longitud_aproximada),
     turnos: turnos
-      .filter((t) => t.lote_id === lote.id)
+      .filter((t) => t.sector_id === lote.sector_id)
       .sort(
         (a, b) =>
           Number(a.dia_semana) - Number(b.dia_semana) || a.hora_inicio.localeCompare(b.hora_inicio),
@@ -55,7 +55,7 @@ export function lotesConTurnos(lotes: LoteItem[], turnos: TurnoItem[]): LoteConT
   }));
 }
 
-/** Todos los lotes de la persona con su ubicación y los turnos de riego asignados a cada uno. */
+/** Todos los lotes de la persona con su ubicación y los turnos de riego de su sector. */
 @Component({
   selector: 'app-mis-lotes',
   standalone: true,
@@ -78,7 +78,8 @@ export class MisLotesComponent implements OnInit {
   }
 
   get totalTurnos(): number {
-    return this.lotes.reduce((suma, l) => suma + l.turnos.length, 0);
+    // Lotes del mismo sector comparten turnos: se cuentan una sola vez.
+    return new Set(this.lotes.flatMap((l) => l.turnos.map((t) => t.id))).size;
   }
 
   cargar(): void {

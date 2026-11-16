@@ -7,7 +7,7 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header.component
 import { EmptyStateComponent } from '../../../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../../../shared/ui/skeleton.component';
 import { PaginadorComponent } from '../../../../shared/ui/paginador.component';
-import { SectorItem } from '../../../../core/models/api-payloads';
+import { CronogramaSector, SectorItem } from '../../../../core/models/api-payloads';
 import { DIAS_SEMANA, Turno, filtrarTurnos, indiceSector } from './turno.model';
 import { TurnosService } from './turnos.service';
 import { TurnosTablaComponent } from './turnos-tabla/turnos-tabla.component';
@@ -15,13 +15,14 @@ import { TurnosCalendarioComponent } from './turnos-calendario/turnos-calendario
 import { TurnoAsignarComponent } from './turno-asignar/turno-asignar.component';
 import { TurnoEditarComponent } from './turno-editar/turno-editar.component';
 import { TurnoDetalleComponent } from './turno-detalle/turno-detalle.component';
+import { SectorRepresentanteComponent } from './sector-representante/sector-representante.component';
 import { AYUDAS_FORMULARIO } from '../../../../core/directives/formularios';
 
 type Vista = 'TABLA' | 'CALENDARIO';
 const CLAVE_VISTA = 'turnos.vista';
 
 /**
- * Turnos semanales de riego. Tabla y calendario son dos vistas de los mismos datos,
+ * Turnos semanales de riego por sector, cada uno con su representante. Tabla y calendario son dos vistas de los mismos datos,
  * así que comparten la carga y los filtros; asignar, editar y ver detalle son componentes propios.
  */
 @Component({
@@ -39,6 +40,7 @@ const CLAVE_VISTA = 'turnos.vista';
     TurnoAsignarComponent,
     TurnoEditarComponent,
     TurnoDetalleComponent,
+    SectorRepresentanteComponent,
   ],
   templateUrl: './turnos-admin.component.html',
 })
@@ -51,6 +53,13 @@ export class TurnosAdminComponent implements OnInit {
   readonly dias = DIAS_SEMANA;
   readonly turnos = signal<Turno[]>([]);
   readonly sectores = signal<SectorItem[]>([]);
+  /** Cada sector con su representante actual (cronograma completo de la directiva). */
+  readonly representantes = signal<CronogramaSector[]>([]);
+  readonly sectorEnRepresentante = signal<{
+    id: number;
+    nombre: string;
+    representante: string;
+  } | null>(null);
   readonly cargando = signal(true);
   readonly error = signal(false);
   readonly vista = signal<Vista>(this.vistaGuardada());
@@ -98,6 +107,7 @@ export class TurnosAdminComponent implements OnInit {
   ngOnInit(): void {
     this.cargar();
     this.cargarSectores();
+    this.cargarRepresentantes();
   }
 
   cargar(): void {
@@ -126,6 +136,19 @@ export class TurnosAdminComponent implements OnInit {
         },
       });
     }
+  }
+
+  cargarRepresentantes(): void {
+    this.admin.getCronograma().subscribe({
+      next: (res) => this.representantes.set(res?.data ?? []),
+      error: () => this.notify.error('No se pudieron cargar los representantes de los sectores.'),
+    });
+  }
+
+  onRepresentanteGuardado(): void {
+    this.sectorEnRepresentante.set(null);
+    this.cargarRepresentantes();
+    this.cargar();
   }
 
   colorSector(nombre: string): number {
@@ -166,7 +189,7 @@ export class TurnosAdminComponent implements OnInit {
     const confirmado = await this.dialog.confirmar({
       tipo: 'DANGER',
       titulo: 'Eliminar turno',
-      mensaje: `¿Eliminar el turno de "${turno.usuario}" (${turno.dia} ${turno.horaInicio} – ${turno.horaFin})?`,
+      mensaje: `¿Eliminar el turno del sector "${turno.sector}" (${turno.dia} ${turno.horaInicio} – ${turno.horaFin})?`,
       textoConfirmar: 'Eliminar',
     });
     if (!confirmado) return;

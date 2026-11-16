@@ -1,164 +1,66 @@
 <app-modal
-  titulo="Asignar turno de riego"
-  subtitulo="Elija el usuario, uno de sus lotes y el horario semanal."
+  titulo="Nuevo turno de riego"
+  subtitulo="Elija el sector y el horario semanal. Lo recibe el representante del sector."
   icono="ri-drop-line"
-  tamano="xl"
+  tamano="sm"
   [bloqueado]="guardando()"
   (cerrar)="cerrar.emit()"
 >
-  <div class="modal__body">
+  <div class="modal__body form-stack">
     <p class="form-legend"><span class="req" aria-hidden="true">*</span> Campos obligatorios</p>
-    <div class="split">
-      <!-- Buscador de usuarios -->
-      <section class="picker" aria-labelledby="picker-titulo">
-        <div class="picker__head">
-          <h4 id="picker-titulo" class="inset-panel__title">
-            <i class="ri-user-search-line" aria-hidden="true"></i> Usuario
-            <span class="req" aria-hidden="true">*</span>
-          </h4>
-          <span class="picker__count" aria-live="polite">
-            @if (buscando()) {
-              Buscando…
-            } @else if (usuarios().length < totalUsuarios()) {
-              {{ usuarios().length }} de {{ totalUsuarios() }}
-            } @else {
-              {{ totalUsuarios() }} disponibles
-            }
-          </span>
-        </div>
-        <div class="search-field">
-          <i class="ri-search-line" aria-hidden="true"></i>
-          <input
-            type="search"
-            class="input"
-            placeholder="Nombre o cédula…"
-            [(ngModel)]="busqueda"
-            (ngModelChange)="buscar($event)"
-            aria-label="Buscar usuario"
-          />
-        </div>
-        <div
-          class="picker__list"
-          role="listbox"
-          aria-label="Usuarios"
-          [class.is-refreshing]="buscando()"
-        >
-          @for (u of usuarios(); track u.id) {
-            <button
-              type="button"
-              role="option"
-              class="picker__option"
-              [class.is-selected]="turno.persona_id === u.id"
-              [attr.aria-selected]="turno.persona_id === u.id"
-              (click)="seleccionar(u)"
-            >
-              <span class="avatar" aria-hidden="true"
-                >{{ (u.nombres || '').charAt(0) }}{{ (u.apellidos || '').charAt(0) }}</span
-              >
-              <span class="picker__text">
-                <strong>{{ u.nombres }} {{ u.apellidos }}</strong>
-                <span>C.I. {{ u.cedula }}</span>
-              </span>
-              @if (turno.persona_id === u.id) {
-                <i class="ri-checkbox-circle-fill picker__check" aria-hidden="true"></i>
-              }
-            </button>
-          } @empty {
-            @if (!buscando()) {
-              <p class="picker__empty">No se encontraron usuarios que coincidan.</p>
-            }
+
+    <div class="form-group">
+      <label for="turno-sector">Sector <span class="req" aria-hidden="true">*</span></label>
+      <select
+        id="turno-sector"
+        class="input"
+        [(ngModel)]="turno.sector_id"
+        required
+        [disabled]="cargandoSectores()"
+      >
+        <option [ngValue]="null">
+          {{ cargandoSectores() ? 'Cargando sectores…' : 'Seleccionar sector…' }}
+        </option>
+        @for (s of sectores(); track s.id) {
+          <option [ngValue]="s.id">{{ s.nombre }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="grid-3">
+      <div class="form-group">
+        <label for="turno-dia">Día <span class="req" aria-hidden="true">*</span></label>
+        <select id="turno-dia" class="input" [(ngModel)]="turno.dia_semana" required>
+          @for (d of dias; track d.valor) {
+            <option [ngValue]="d.valor">{{ d.label }}</option>
           }
-        </div>
-      </section>
-
-      <!-- Datos del turno -->
-      <div class="form-stack">
-        <div class="selected-person" [class.is-empty]="!seleccionado" aria-live="polite">
-          @if (seleccionado) {
-            <span class="avatar" aria-hidden="true"><i class="ri-user-fill"></i></span>
-            <div>
-              <strong>{{ seleccionado.nombres }} {{ seleccionado.apellidos }}</strong>
-              <span>C.I. {{ seleccionado.cedula }}</span>
-            </div>
-          } @else {
-            <i class="ri-cursor-line" aria-hidden="true"></i>
-            <span>Seleccione un usuario de la lista.</span>
-          }
-        </div>
-
-        <div class="form-group">
-          <label for="turno-lote"
-            >Lote beneficiario <span class="req" aria-hidden="true">*</span></label
-          >
-          <select
-            id="turno-lote"
-            class="input"
-            [(ngModel)]="turno.lote_id"
-            required
-            [disabled]="!turno.persona_id || cargandoLotes()"
-          >
-            <option [ngValue]="null">
-              {{
-                !turno.persona_id
-                  ? 'Seleccione primero un usuario…'
-                  : cargandoLotes()
-                    ? 'Cargando lotes…'
-                    : lotes().length === 0
-                      ? 'Sin lotes asignados'
-                      : 'Seleccionar lote…'
-              }}
-            </option>
-            @for (l of lotes(); track l.id) {
-              <option [ngValue]="l.id">
-                {{ l.codigo }} · {{ l.sector_nombre || 'General'
-                }}{{ l.superficie_m2 ? ' · ' + l.superficie_m2 + ' m²' : '' }}
-              </option>
-            }
-          </select>
-          @if (turno.persona_id && !cargandoLotes() && lotes().length === 0) {
-            <small class="field__error"
-              ><i class="ri-alert-line" aria-hidden="true"></i> El usuario no posee lotes
-              registrados.</small
-            >
-          }
-        </div>
-
-        <div class="grid-3">
-          <div class="form-group">
-            <label for="turno-dia">Día <span class="req" aria-hidden="true">*</span></label>
-            <select id="turno-dia" class="input" [(ngModel)]="turno.dia_semana" required>
-              @for (d of dias; track d.valor) {
-                <option [ngValue]="d.valor">{{ d.label }}</option>
-              }
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="turno-inicio">Inicio <span class="req" aria-hidden="true">*</span></label>
-            <input
-              id="turno-inicio"
-              type="time"
-              class="input"
-              [(ngModel)]="turno.hora_inicio"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label for="turno-fin">Fin <span class="req" aria-hidden="true">*</span></label>
-            <input id="turno-fin" type="time" class="input" [(ngModel)]="turno.hora_fin" required />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="turno-obs">Observaciones <span class="opt">(Opcional)</span></label>
-          <textarea
-            id="turno-obs"
-            class="input"
-            [(ngModel)]="turno.observacion"
-            rows="2"
-            placeholder="Ej. Riego por la toma norte del canal…"
-          ></textarea>
-        </div>
+        </select>
       </div>
+      <div class="form-group">
+        <label for="turno-inicio">Inicio <span class="req" aria-hidden="true">*</span></label>
+        <input
+          id="turno-inicio"
+          type="time"
+          class="input"
+          [(ngModel)]="turno.hora_inicio"
+          required
+        />
+      </div>
+      <div class="form-group">
+        <label for="turno-fin">Fin <span class="req" aria-hidden="true">*</span></label>
+        <input id="turno-fin" type="time" class="input" [(ngModel)]="turno.hora_fin" required />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="turno-obs">Observaciones <span class="opt">(Opcional)</span></label>
+      <textarea
+        id="turno-obs"
+        class="input"
+        [(ngModel)]="turno.observacion"
+        rows="2"
+        placeholder="Ej. Riego por la toma norte del canal…"
+      ></textarea>
     </div>
   </div>
 

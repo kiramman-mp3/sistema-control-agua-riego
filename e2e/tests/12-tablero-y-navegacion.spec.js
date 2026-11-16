@@ -101,9 +101,9 @@ test.describe('acciones rápidas', () => {
     await expect(page.locator('#minga-fecha')).toBeVisible();
   });
 
-  test('Asignar turno de agua lleva a los turnos', async ({ page }) => {
+  test('Turnos de agua lleva a los turnos', async ({ page }) => {
     await page.goto('/admin/dashboard');
-    await page.getByRole('link', { name: /Asignar turno de agua/ }).click();
+    await page.locator('a.quick-tile', { hasText: 'Turnos de agua' }).click();
     await expect(page).toHaveURL(/\/admin\/turnos/);
   });
 });

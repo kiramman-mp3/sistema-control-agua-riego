@@ -6,30 +6,26 @@ import { DialogService } from '../../../../core/services/dialog.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { TurnosAdminComponent } from './turnos-admin.component';
 import { TurnoAsignarComponent } from './turno-asignar/turno-asignar.component';
+import { SectorRepresentanteComponent } from './sector-representante/sector-representante.component';
 
 const turnosApi = [
   {
     id: 1,
-    persona_id: 7,
-    lote_id: 3,
+    sector_id: 1,
     dia_semana: 1,
     hora_inicio: '08:00:00',
     hora_fin: '10:00:00',
-    usuario_nombre: 'Ana Pérez',
-    lote_codigo: 'LJA-001',
     sector_nombre: 'La Merced',
+    representante_nombre: 'Ana Pérez',
   },
   {
     id: 2,
-    persona_id: 8,
-    lote_id: 4,
+    sector_id: 2,
     dia_semana: 3,
     hora_inicio: '14:00:00',
     hora_fin: '16:00:00',
-    nombres: 'Luis',
-    apellidos: 'Mora',
-    lote_codigo: 'LJA-002',
     sector_nombre: 'Centro',
+    representante_nombre: null,
   },
 ];
 
@@ -42,9 +38,10 @@ describe('Turnos de agua', () => {
     admin = {
       getTurnos: vi.fn(() => of({ data: turnosApi })),
       eliminarTurno: vi.fn(() => of({ message: 'Eliminado' })),
-      asignarTurno: vi.fn(() => of({ message: 'Asignado' })),
+      crearTurno: vi.fn(() => of({ message: 'Creado' })),
+      asignarRepresentante: vi.fn(() => of({ message: 'Designado' })),
+      getCronograma: vi.fn(() => of({ data: [] })),
       getPersonas: vi.fn(() => of({ data: [], pagination: { total: 0 } })),
-      getLotes: vi.fn(() => of({ data: [{ id: 3, codigo: 'LJA-001' }] })),
       getSectores: vi.fn(() => of({ data: [{ id: 1, nombre: 'La Merced' }] })),
     };
     dialog = { confirmar: vi.fn(async () => true) };
@@ -72,12 +69,16 @@ describe('Turnos de agua', () => {
   it('normaliza los turnos de la API y filtra por texto, día y sector', () => {
     const component = TestBed.createComponent(TurnosAdminComponent).componentInstance;
     component.cargar();
-    expect(component.turnos().map((t) => [t.usuario, t.dia, t.horaInicio])).toEqual([
-      ['Ana Pérez', 'Lunes', '08:00'],
-      ['Luis Mora', 'Miércoles', '14:00'],
-    ]);
+    expect(component.turnos().map((t) => [t.sector, t.representante, t.dia, t.horaInicio])).toEqual(
+      [
+        ['La Merced', 'Ana Pérez', 'Lunes', '08:00'],
+        ['Centro', '', 'Miércoles', '14:00'],
+      ],
+    );
     component.busqueda.set('centro');
     expect(component.filtrados().map((t) => t.id)).toEqual([2]);
+    component.busqueda.set('ana');
+    expect(component.filtrados().map((t) => t.id)).toEqual([1]);
     component.limpiarFiltros();
     component.diaFiltro.set('Lunes');
     expect(component.filtrados().map((t) => t.id)).toEqual([1]);
@@ -131,21 +132,38 @@ describe('Turnos de agua', () => {
     expect(component.turnosDeLaPagina()).toHaveLength(25);
   });
 
-  it('al seleccionar un usuario propone su primer lote y valida el horario', () => {
+  it('exige el sector y valida el horario antes de crear el turno', () => {
     const component = TestBed.createComponent(TurnoAsignarComponent).componentInstance;
-    component.seleccionar({
-      id: 7,
-      nombres: 'Ana',
-      apellidos: 'Pérez',
-      cedula: '1800000001',
-    } as any);
-    expect(admin.getLotes).toHaveBeenCalledWith(undefined, undefined, 7);
-    expect(component.turno.lote_id).toBe(3);
+    component.guardar();
+    expect(notify.warning).toHaveBeenCalledWith('Debe seleccionar el sector.');
 
+    component.turno.sector_id = 1;
     component.turno.hora_inicio = '10:00';
     component.turno.hora_fin = '09:00';
     component.guardar();
-    expect(notify.warning).toHaveBeenCalled();
-    expect(admin.asignarTurno).not.toHaveBeenCalled();
+    expect(admin.crearTurno).not.toHaveBeenCalled();
+
+    component.turno.hora_fin = '12:00';
+    component.guardar();
+    expect(admin.crearTurno).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sector_id: 1,
+        dia_semana: 1,
+        hora_inicio: '10:00',
+        hora_fin: '12:00',
+      }),
+    );
+  });
+
+  it('designa y quita al representante del sector', () => {
+    const guardado = vi.fn();
+    const fixture = TestBed.createComponent(SectorRepresentanteComponent);
+    fixture.componentRef.setInput('sector', { id: 2, nombre: 'Centro', representante: '' });
+    fixture.componentInstance.guardado.subscribe(guardado);
+    fixture.componentInstance.guardar(7);
+    expect(admin.asignarRepresentante).toHaveBeenCalledWith(2, 7);
+    fixture.componentInstance.guardar(null);
+    expect(admin.asignarRepresentante).toHaveBeenCalledWith(2, null);
+    expect(guardado).toHaveBeenCalledTimes(2);
   });
 });

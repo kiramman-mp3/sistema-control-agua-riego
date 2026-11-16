@@ -177,15 +177,17 @@ async function getPersonaById(req, res) {
     [id]
   );
 
+  // Turnos de los sectores donde el usuario tiene lotes o a los que representa.
   const [turnos] = await db.query(
     `SELECT t.id, t.dia_semana, t.hora_inicio, t.hora_fin, t.estado, t.observacion,
-            l.codigo AS lote_codigo, s.nombre AS sector_nombre
+            s.nombre AS sector_nombre, (s.representante_persona_id = ?) AS es_representante
      FROM turnos_riego t
-     LEFT JOIN lotes l ON l.id = t.lote_id
-     LEFT JOIN sectores s ON s.id = l.sector_id
-     WHERE t.persona_id = ? AND t.estado = 'ACTIVO'
+     JOIN sectores s ON s.id = t.sector_id
+     WHERE t.estado = 'ACTIVO' AND s.activo = TRUE AND (s.representante_persona_id = ? OR s.id IN (
+       SELECT l.sector_id FROM lotes l JOIN persona_lotes pl ON pl.lote_id = l.id
+       WHERE pl.persona_id = ? AND l.activo = TRUE))
      ORDER BY t.dia_semana ASC, t.hora_inicio ASC`,
-    [id]
+    [id, id, id]
   );
 
   const [obligaciones] = await db.query(
@@ -405,7 +407,7 @@ async function updatePersona(req, res) {
 /**
  * Eliminación física de una persona erróneamente registrada.
  * Por estricta regla institucional, solo se permite si NO tiene ningún historial
- * (0 lotes, 0 obligaciones emitidas, 0 asistencias a eventos, 0 turnos).
+ * (0 lotes, 0 obligaciones emitidas, 0 asistencias a eventos, 0 sectores representados).
  * Si tiene historial, se rechaza y se exige baja lógica (estado = INACTIVO).
  */
 async function deletePersona(req, res) {
@@ -425,15 +427,15 @@ async function deletePersona(req, res) {
     const [[{ obligCount }]] = await conexion.query('SELECT COUNT(*) AS obligCount FROM obligaciones WHERE persona_id = ?', [id]);
     const [[{ obligAguaCount }]] = await conexion.query('SELECT COUNT(*) AS obligAguaCount FROM obligacion_anual_agua WHERE persona_id = ?', [id]);
     const [[{ asistenciasCount }]] = await conexion.query('SELECT COUNT(*) AS asistenciasCount FROM asistencias WHERE persona_id = ?', [id]);
-    const [[{ turnosCount }]] = await conexion.query('SELECT COUNT(*) AS turnosCount FROM turnos_riego WHERE persona_id = ?', [id]);
+    const [[{ sectoresCount }]] = await conexion.query('SELECT COUNT(*) AS sectoresCount FROM sectores WHERE representante_persona_id = ?', [id]);
     const [[{ pagosCount }]] = await conexion.query('SELECT COUNT(*) AS pagosCount FROM pagos WHERE persona_id = ?', [id]);
 
-    const totalVinculos = Number(lotesCount) + Number(obligCount) + Number(obligAguaCount) + Number(asistenciasCount) + Number(turnosCount) + Number(pagosCount);
+    const totalVinculos = Number(lotesCount) + Number(obligCount) + Number(obligAguaCount) + Number(asistenciasCount) + Number(sectoresCount) + Number(pagosCount);
 
     if (totalVinculos > 0) {
       throw conflict(
         `No se puede eliminar físicamente al usuario porque registra historial activo ` +
-        `(${lotesCount} lotes, ${Number(obligCount) + Number(obligAguaCount)} obligaciones, ${asistenciasCount} asistencias, ${turnosCount} turnos). ` +
+        `(${lotesCount} lotes, ${Number(obligCount) + Number(obligAguaCount)} obligaciones, ${asistenciasCount} asistencias, ${sectoresCount} sectores que representa). ` +
         `Para preservar la trazabilidad institucional de la Junta, cambie su estado a INACTIVO.`
       );
     }
