@@ -38,78 +38,78 @@
     <span class="sr-only" role="status">Cargando indicadores…</span>
   } @else {
     @let r = resumen;
-    <div
-      class="stat-grid"
-      aria-label="Indicadores financieros"
-      [class.is-refreshing]="cargandoResumen"
-    >
-      <div class="stat-tile">
-        <span class="stat-tile__icon" aria-hidden="true"><i class="ri-hand-coin-line"></i></span>
-        <span class="stat-tile__label">Recaudado este mes</span>
-        <span class="stat-tile__value">${{ r.finanzas.recaudadoMes | number: '1.2-2' }}</span>
-        <span class="stat-tile__hint"
-          >${{ r.finanzas.recaudadoAnio | number: '1.2-2' }} en el año</span
-        >
-      </div>
-      <div class="stat-tile stat-tile--negative">
-        <span class="stat-tile__icon stat-tile__icon--danger" aria-hidden="true"
-          ><i class="ri-error-warning-line"></i
-        ></span>
-        <span class="stat-tile__label">Pendiente por cobrar</span>
-        <span class="stat-tile__value">${{ r.finanzas.carteraPendiente | number: '1.2-2' }}</span>
-        <span class="stat-tile__hint"
-          >${{ r.finanzas.carteraVencida | number: '1.2-2' }} vencido ·
-          {{ r.finanzas.usuariosEnMora }} usuarios en mora</span
-        >
-      </div>
-      <div class="stat-tile">
-        <span class="stat-tile__icon stat-tile__icon--warning" aria-hidden="true"
-          ><i class="ri-shopping-bag-line"></i
-        ></span>
-        <span class="stat-tile__label">Egresos este mes</span>
-        <span class="stat-tile__value">${{ r.finanzas.egresosMes | number: '1.2-2' }}</span>
-        <span class="stat-tile__hint"
-          >${{ r.finanzas.egresosAnio | number: '1.2-2' }} en el año</span
-        >
-      </div>
+    @if (r.finanzas; as f) {
       <div
-        class="stat-tile"
-        [class.stat-tile--positive]="r.finanzas.saldoCaja >= 0"
-        [class.stat-tile--negative]="r.finanzas.saldoCaja < 0"
+        class="stat-grid"
+        aria-label="Indicadores financieros"
+        [class.is-refreshing]="cargandoResumen"
       >
-        <span class="stat-tile__icon stat-tile__icon--success" aria-hidden="true"
-          ><i class="ri-scales-3-line"></i
-        ></span>
-        <span class="stat-tile__label">Saldo de caja</span>
-        <span class="stat-tile__value">${{ r.finanzas.saldoCaja | number: '1.2-2' }}</span>
-        <span class="stat-tile__hint">Ingresos menos egresos históricos</span>
+        <div class="stat-tile">
+          <span class="stat-tile__icon" aria-hidden="true"><i class="ri-hand-coin-line"></i></span>
+          <span class="stat-tile__label">Recaudado este mes</span>
+          <span class="stat-tile__value">${{ f.recaudadoMes | number: '1.2-2' }}</span>
+          <span class="stat-tile__hint">${{ f.recaudadoAnio | number: '1.2-2' }} en el año</span>
+        </div>
+        <div class="stat-tile stat-tile--negative">
+          <span class="stat-tile__icon stat-tile__icon--danger" aria-hidden="true"
+            ><i class="ri-error-warning-line"></i
+          ></span>
+          <span class="stat-tile__label">Pendiente por cobrar</span>
+          <span class="stat-tile__value">${{ f.carteraPendiente | number: '1.2-2' }}</span>
+          <span class="stat-tile__hint"
+            >${{ f.carteraVencida | number: '1.2-2' }} vencido · {{ f.usuariosEnMora }} usuarios en
+            mora</span
+          >
+        </div>
+        <div class="stat-tile">
+          <span class="stat-tile__icon stat-tile__icon--warning" aria-hidden="true"
+            ><i class="ri-shopping-bag-line"></i
+          ></span>
+          <span class="stat-tile__label">Egresos este mes</span>
+          <span class="stat-tile__value">${{ f.egresosMes | number: '1.2-2' }}</span>
+          <span class="stat-tile__hint">${{ f.egresosAnio | number: '1.2-2' }} en el año</span>
+        </div>
+        <div
+          class="stat-tile"
+          [class.stat-tile--positive]="f.saldoCaja >= 0"
+          [class.stat-tile--negative]="f.saldoCaja < 0"
+        >
+          <span class="stat-tile__icon stat-tile__icon--success" aria-hidden="true"
+            ><i class="ri-scales-3-line"></i
+          ></span>
+          <span class="stat-tile__label">Saldo de caja</span>
+          <span class="stat-tile__value">${{ f.saldoCaja | number: '1.2-2' }}</span>
+          <span class="stat-tile__hint">Ingresos menos egresos históricos</span>
+        </div>
       </div>
-    </div>
+    }
   }
 
   <section aria-labelledby="acciones-titulo">
     <h3 id="acciones-titulo" class="section-head__title section-gap">Acciones rápidas</h3>
     <div class="quick-grid">
-      <a class="quick-tile" routerLink="/admin/cobros/cobrar">
-        <span class="quick-tile__icon" aria-hidden="true"><i class="ri-hand-coin-line"></i></span>
-        <span class="quick-tile__text"
-          ><strong>Registrar cobro</strong><span>Cobro en caja a un usuario</span></span
+      @if (esTesorero) {
+        <a class="quick-tile" routerLink="/admin/cobros/cobrar">
+          <span class="quick-tile__icon" aria-hidden="true"><i class="ri-hand-coin-line"></i></span>
+          <span class="quick-tile__text"
+            ><strong>Registrar cobro</strong><span>Cobro en caja a un usuario</span></span
+          >
+          <i class="ri-arrow-right-s-line quick-tile__chevron" aria-hidden="true"></i>
+        </a>
+        <a
+          class="quick-tile quick-tile--warning"
+          routerLink="/admin/cobros/egresos"
+          [queryParams]="{ nuevo: 'egreso' }"
         >
-        <i class="ri-arrow-right-s-line quick-tile__chevron" aria-hidden="true"></i>
-      </a>
-      <a
-        class="quick-tile quick-tile--warning"
-        routerLink="/admin/cobros/egresos"
-        [queryParams]="{ nuevo: 'egreso' }"
-      >
-        <span class="quick-tile__icon" aria-hidden="true"
-          ><i class="ri-shopping-bag-3-line"></i
-        ></span>
-        <span class="quick-tile__text"
-          ><strong>Registrar egreso</strong><span>Gasto o pago de la Junta</span></span
-        >
-        <i class="ri-arrow-right-s-line quick-tile__chevron" aria-hidden="true"></i>
-      </a>
+          <span class="quick-tile__icon" aria-hidden="true"
+            ><i class="ri-shopping-bag-3-line"></i
+          ></span>
+          <span class="quick-tile__text"
+            ><strong>Registrar egreso</strong><span>Gasto o pago de la Junta</span></span
+          >
+          <i class="ri-arrow-right-s-line quick-tile__chevron" aria-hidden="true"></i>
+        </a>
+      }
       <a
         class="quick-tile quick-tile--secondary"
         routerLink="/admin/usuarios/padron"
@@ -175,14 +175,14 @@
             <dt>Asambleas y mingas del año</dt>
             <dd>{{ r.comunidad.eventosAnio }}</dd>
           </div>
-          <div>
-            <dt>Cobro del pago anual de agua</dt>
-            <dd>
-              {{
-                r.cobranza.porcentaje === null ? '—' : (r.cobranza.porcentaje | percent: '1.0-0')
-              }}
-            </dd>
-          </div>
+          @if (r.cobranza; as cobranza) {
+            <div>
+              <dt>Cobro del pago anual de agua</dt>
+              <dd>
+                {{ cobranza.porcentaje === null ? '—' : (cobranza.porcentaje | percent: '1.0-0') }}
+              </dd>
+            </div>
+          }
           <div>
             <dt>Asistencia promedio</dt>
             <dd>
@@ -195,10 +195,12 @@
             <dt>Cuentas de acceso activas</dt>
             <dd>{{ r.comunidad.cuentasActivas }}</dd>
           </div>
-          <div>
-            <dt>Usuarios en mora</dt>
-            <dd>{{ r.finanzas.usuariosEnMora }}</dd>
-          </div>
+          @if (r.finanzas; as finanzas) {
+            <div>
+              <dt>Usuarios en mora</dt>
+              <dd>{{ finanzas.usuariosEnMora }}</dd>
+            </div>
+          }
         </dl>
       </section>
 

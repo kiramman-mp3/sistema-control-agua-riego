@@ -52,6 +52,10 @@ export class UsuarioFormComponent implements OnInit {
   modoEdicion = false;
   /** Cuenta de acceso del usuario en edición (null si no tiene). */
   cuenta: { estado: string; rol: Rol } | null = null;
+
+  etiquetaRol(rol: Rol): string {
+    return rol === ROLES.TESORERO ? 'Tesorero' : rol === ROLES.ADMIN ? 'Administrador' : 'Usuario';
+  }
   /** Contraseña temporal recién generada, mostrada una sola vez. */
   credencialTemporal: CredencialTemporal | null = null;
   private creadoPendienteDeCierre = false;

@@ -152,6 +152,7 @@ export interface DashboardResumen {
     cuentasActivas: number;
     eventosAnio: number;
   };
+  /** Solo el tesorero recibe las finanzas y la cobranza; para el resto de la directiva llegan como null. */
   finanzas: {
     recaudadoMes: number;
     recaudadoAnio: number;
@@ -161,8 +162,8 @@ export interface DashboardResumen {
     carteraPendiente: number;
     carteraVencida: number;
     usuariosEnMora: number;
-  };
-  cobranza: { emitido: number; cobrado: number; porcentaje: number | null };
+  } | null;
+  cobranza: { emitido: number; cobrado: number; porcentaje: number | null } | null;
   asistencia: {
     promedio: number | null;
     ultimosEventos: {
@@ -221,7 +222,7 @@ export interface JustificanteSubido extends RespuestaMensaje {
 export interface PersonaListado extends PersonaItem {
   created_at?: string;
   cuenta_estado: 'ACTIVA' | 'BLOQUEADA' | 'INACTIVA' | null;
-  rol: 'ADMIN' | 'USUARIO' | null;
+  rol: 'ADMIN' | 'TESORERO' | 'USUARIO' | null;
   /** Sectores de los lotes del usuario, separados por coma. */
   sector_nombre?: string | null;
   /** Hectáreas de todos sus lotes (m² ÷ 10.000). */

@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 import { AdminService } from '../../../core/services/admin.service';
 import { DashboardResumen } from '../../../core/models/api-payloads';
 import { FechaLocalPipe } from '../../../shared/pipes/fecha-local.pipe';
@@ -21,6 +22,8 @@ export class DashboardComponent implements OnInit {
   errorCarga = '';
 
   private adminService = inject(AdminService);
+  /** Las finanzas (indicadores y atajos de cobro) son solo del tesorero. */
+  readonly esTesorero = inject(AuthService).esTesorero();
   private cdr = inject(ChangeDetectorRef);
 
   ngOnInit() {

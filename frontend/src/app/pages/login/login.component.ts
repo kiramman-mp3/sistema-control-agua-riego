@@ -152,7 +152,7 @@ export class LoginComponent implements OnInit {
       this.router.navigateByUrl(returnUrl);
       return;
     }
-    if (rol === ROLES.ADMIN) {
+    if (rol === ROLES.ADMIN || rol === ROLES.TESORERO) {
       this.router.navigate(['/admin']);
     } else {
       this.router.navigate(['/mi-cuenta']);
