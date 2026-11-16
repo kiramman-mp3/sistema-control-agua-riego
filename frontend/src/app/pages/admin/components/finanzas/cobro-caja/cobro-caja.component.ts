@@ -131,6 +131,8 @@ export class CobroCajaComponent {
 
   readonly metodo = signal<MetodoPagoNuevo>('TRANSFERENCIA');
   readonly referencia = signal('');
+  /** Comprobante bancario del pago anual de agua: se elige antes de poder registrar el pago. */
+  readonly comprobanteArchivo = signal<File | null>(null);
   readonly observacion = signal('');
   readonly procesando = signal(false);
   readonly comprobante = signal<Comprobante | null>(null);
@@ -232,6 +234,9 @@ export class CobroCajaComponent {
   readonly bloqueo = computed(() => {
     if (!this.cantidadSeleccionada()) return 'Seleccione al menos una obligación.';
     if (!this.referencia().trim()) return 'Ingrese el número de referencia.';
+    if (this.pestana() === 'AGUA' && !this.comprobanteArchivo()) {
+      return 'Adjunte el comprobante bancario para poder registrar el pago.';
+    }
     return '';
   });
 
@@ -437,9 +442,12 @@ export class CobroCajaComponent {
       textoConfirmar: 'Registrar pago',
     });
     if (!confirmado || this.procesando()) return;
-    const peticion: Observable<PagoRegistrado> = anual
-      ? this.finanzas.registrarPagoAnualAgua(datos)
-      : this.finanzas.registrarPago(datos);
+    const comprobanteBancario = this.comprobanteArchivo();
+    if (anual && !comprobanteBancario) return;
+    const peticion: Observable<PagoRegistrado> =
+      anual && comprobanteBancario
+        ? this.finanzas.registrarPagoAnualAgua(datos, comprobanteBancario)
+        : this.finanzas.registrarPago(datos);
 
     this.procesando.set(true);
     peticion.subscribe({
@@ -473,6 +481,22 @@ export class CobroCajaComponent {
     });
   }
 
+  /** Guarda el comprobante elegido si es un PDF, JPG o PNG de hasta 10 MB. */
+  elegirComprobante(input: HTMLInputElement): void {
+    const archivo = input.files?.[0];
+    input.value = '';
+    if (!archivo) return;
+    if (
+      !['application/pdf', 'image/jpeg', 'image/png'].includes(archivo.type) ||
+      !archivo.size ||
+      archivo.size > 10 * 1024 * 1024
+    ) {
+      this.notify.warning('Seleccione un PDF, JPG o PNG de hasta 10 MB.');
+      return;
+    }
+    this.comprobanteArchivo.set(archivo);
+  }
+
   async imprimirComprobante(descargar = false): Promise<void> {
     const c = this.comprobante();
     if (!c || this.imprimiendo()) return;
@@ -492,6 +516,7 @@ export class CobroCajaComponent {
     this.metodo.set('TRANSFERENCIA');
     this.referencia.set('');
     this.observacion.set('');
+    this.comprobanteArchivo.set(null);
     this.pestana.set(pestana);
   }
 }
