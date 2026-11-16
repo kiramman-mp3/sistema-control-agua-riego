@@ -34,12 +34,8 @@ Los endpoints protegidos requieren autenticación mediante **JSON Web Tokens (JW
 
 | Método | Endpoint | Permisos | Descripción |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/login` | Público | Autenticación con `cedula`, `password` y `recordar` (opcional, por defecto `true`). Deja la sesión en la cookie HttpOnly `junta_sesion` (y la cookie legible `junta_csrf`) y devuelve también el token y `debeCambiarPassword` para clientes de la API. Si la cuenta tiene verificación en dos pasos responde `requiereTotp: true` con un token intermedio de 5 minutos que solo sirve para `/auth/totp/verificar`. Tras 5 intentos fallidos en 15 minutos desde una misma IP, esa cuenta queda bloqueada 15 minutos para esa IP. |
-| `POST` | `/auth/totp/verificar` | Token intermedio | Segundo paso: `codigo` (6 dígitos de la aplicación o un código de recuperación). Entrega la sesión completa. Un código ya usado no se acepta. |
-| `POST` | `/auth/totp/iniciar` | ADMIN | Genera el secreto (guardado cifrado) y devuelve `secreto`, `uri` (`otpauth://`) y `qr` (imagen PNG en data URL). |
-| `POST` | `/auth/totp/activar` | ADMIN | Activa la verificación con el primer `codigo` y devuelve 8 `codigosRecuperacion` (una sola vez). |
-| `POST` | `/auth/totp/desactivar` | Autenticado | Desactiva la verificación de la propia cuenta con su `password`. |
-| `GET` | `/auth/me` | Autenticado | Devuelve los datos del perfil y rol del usuario autenticado, y `totpActivo`. |
+| `POST` | `/auth/login` | Público | Autenticación con `cedula`, `password` y `recordar` (opcional, por defecto `true`). Deja la sesión en la cookie HttpOnly `junta_sesion` (y la cookie legible `junta_csrf`) y devuelve también el token y `debeCambiarPassword` para clientes de la API. Tras 5 intentos fallidos en 15 minutos desde una misma IP, esa cuenta queda bloqueada 15 minutos para esa IP. |
+| `GET` | `/auth/me` | Autenticado | Devuelve los datos del perfil y rol del usuario autenticado. |
 | `POST` | `/auth/change-password` | Autenticado | Permite al usuario modificar su contraseña. Renueva la cookie de sesión. |
 | `POST` | `/auth/logout` | Autenticado | Cierra todas las sesiones de la cuenta y borra las cookies. |
 
@@ -57,7 +53,6 @@ Los endpoints protegidos requieren autenticación mediante **JSON Web Tokens (JW
 | `POST` | `/personas` | ADMIN / SECRETARIO | Registro de un usuario con opción de creación de cuenta de acceso. |
 | `PUT` | `/personas/:id` | ADMIN / SECRETARIO | Actualización de datos personales. La fecha de nacimiento, si se envía, debe corresponder a una persona de al menos 18 años. |
 | `GET` | `/personas/cuentas-bloqueadas` | ADMIN | Cuentas con el inicio de sesión bloqueado ahora mismo: persona, número de redes (IP) bloqueadas y minutos restantes. |
-| `POST` | `/personas/:id/cuenta/totp/desactivar` | ADMIN | Quita la verificación en dos pasos de otra cuenta (por ejemplo, si perdió su teléfono y sus códigos). No sirve para la propia. |
 | `POST` | `/personas/:id/cuenta/desbloquear` | ADMIN | Levanta el bloqueo de inicio de sesión de la cuenta (desde todas las IP) sin cambiar su contraseña. |
 
 ---
