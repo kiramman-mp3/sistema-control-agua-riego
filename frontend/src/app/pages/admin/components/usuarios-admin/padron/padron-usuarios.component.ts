@@ -19,6 +19,7 @@ import {
   PersonaListado,
   SectorItem,
 } from '../../../../../core/models/api-payloads';
+import { DialogService } from '../../../../../core/services/dialog.service';
 import { NotificationService } from '../../../../../core/services/notification.service';
 import { EmptyStateComponent } from '../../../../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../../../../shared/ui/skeleton.component';
@@ -56,6 +57,7 @@ export class PadronUsuariosComponent implements OnInit {
   private admin = inject(AdminService);
   private destroyRef = inject(DestroyRef);
   private notify = inject(NotificationService);
+  private dialog = inject(DialogService);
 
   /** ?nuevo=usuario abre el formulario desde el acceso rápido del dashboard. */
   readonly nuevo = input<string | undefined>();
@@ -210,6 +212,24 @@ export class PadronUsuariosComponent implements OnInit {
   editarLote(lote: LoteItem): void {
     this.loteDetalle.set(null);
     this.loteEnEdicion.set(lote);
+  }
+
+  /** Borra un usuario registrado por error; el servidor lo rechaza si ya tiene historial (entonces se inactiva). */
+  async eliminarUsuario(usuario: PersonaListado): Promise<void> {
+    const confirmado = await this.dialog.confirmar({
+      tipo: 'DANGER',
+      titulo: 'Eliminar usuario',
+      mensaje: `¿Eliminar a ${usuario.nombres} ${usuario.apellidos}? Úselo solo si se registró por error: se borra también su cuenta y no se puede deshacer. Si ya tiene lotes, pagos u otro historial, el sistema no lo permitirá y deberá marcarlo como inactivo.`,
+      textoConfirmar: 'Eliminar',
+    });
+    if (!confirmado) return;
+    this.admin.deletePersona(usuario.id).subscribe({
+      next: (res) => {
+        this.notify.success(res.message || 'Usuario eliminado.');
+        this.cargar();
+      },
+      error: (err) => this.notify.error(err.error?.message || 'No se pudo eliminar al usuario.'),
+    });
   }
 
   onLoteEliminado(): void {
