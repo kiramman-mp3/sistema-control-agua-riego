@@ -235,3 +235,13 @@ test('la migración de turnos por sector agrupa los turnos existentes por el sec
   const [[huerfano]] = await db.query('SELECT sector_id, estado FROM turnos_riego WHERE id = ?', [sinLote.insertId]);
   assert.deepEqual(huerfano, { sector_id: null, estado: 'INACTIVO' });
 });
+
+test('la verificación en dos pasos ya no existe: las columnas se eliminaron y las rutas no responden', async () => {
+  const [columnas] = await db.query(
+    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cuentas' AND COLUMN_NAME LIKE 'totp%'"
+  );
+  assert.equal(columnas.length, 0);
+  for (const ruta of ['/api/auth/totp/verificar', '/api/auth/totp/iniciar', '/api/auth/totp/activar', '/api/auth/totp/desactivar']) {
+    assert.equal((await request(app).post(ruta).send({})).status, 404, ruta);
+  }
+});

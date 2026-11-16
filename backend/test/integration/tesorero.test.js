@@ -79,7 +79,6 @@ test('el administrador no puede conceder el rol de tesorero ni tocar su cuenta m
     .send({ estado: 'BLOQUEADA' })).status, 403);
   assert.equal((await request(app).patch(cuenta).set(auth(admin)).send({ rol: 'ADMIN' })).status, 403);
   assert.equal((await request(app).post(`${cuenta}/restablecer-password`).set(auth(admin))).status, 403);
-  assert.equal((await request(app).post(`${cuenta}/totp/desactivar`).set(auth(admin))).status, 403);
   assert.equal((await request(app).put(`/api/personas/${tesorero.personaId}`).set(auth(admin))
     .send({ nombres: 'Cambio', apellidos: 'Indebido', estado: 'INACTIVO' })).status, 403);
 
