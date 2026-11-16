@@ -1,6 +1,6 @@
 # ADR 0002 — Sesión en cookie HttpOnly y verificación en dos pasos opcional
 
-- **Estado:** aceptado.
+- **Estado:** aceptado. La verificación en dos pasos se retiró después: ver [ADR 0005](0005-retiro-de-la-verificacion-en-dos-pasos.md). La sesión en cookie sigue vigente.
 - **Fecha:** 2026-11-13.
 - **Hallazgos relacionados:** AP-06 y AP-11 de [`docs/auditoria/HALLAZGOS.md`](../../auditoria/HALLAZGOS.md).
 

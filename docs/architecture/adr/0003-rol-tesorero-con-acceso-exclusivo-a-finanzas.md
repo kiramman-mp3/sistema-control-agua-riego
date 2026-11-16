@@ -13,7 +13,7 @@ Hasta ahora cualquier cuenta `ADMIN` podía cobrar, anular pagos, fijar tarifas,
 - Nuevo rol `TESORERO` (migración `038_rol_tesorero`). Tiene **todas** las funciones de la directiva (`esAdmin` es verdadero para `ADMIN` y `TESORERO`) y, además, es el único con acceso financiero.
 - Las rutas de `/api/financiero` (cobros, pagos, pago anual de agua, tarifas, egresos, balance, historial, multas) pasan de `soloAdmin` a `soloTesorero`.
 - Un `ADMIN` que no es tesorero solo ve sus propias obligaciones y comprobantes (`personaFinancieraPermitida`). El tablero de inicio le devuelve `finanzas` y `cobranza` en `null`, y el panel oculta el grupo **Finanzas**, los accesos rápidos de cobro y egreso, y las tarjetas de cobranza y mora. Las rutas del panel (`/admin/cobros`, `/admin/ajustes`, `/admin/historial`) exigen `TESORERO`.
-- **Cuenta del tesorero protegida:** un `ADMIN` no puede crear, modificar, bloquear, inactivar, eliminar, restablecer la contraseña ni quitar la verificación en dos pasos de una cuenta `TESORERO`, ni conceder el rol, mientras exista un tesorero activo. Solo el tesorero gestiona esa cuenta (`exigirPermisoSobreTesorero`).
+- **Cuenta del tesorero protegida:** un `ADMIN` no puede crear, modificar, bloquear, inactivar, eliminar ni restablecer la contraseña de una cuenta `TESORERO`, ni conceder el rol, mientras exista un tesorero activo. Solo el tesorero gestiona esa cuenta (`exigirPermisoSobreTesorero`).
 - **Designación inicial:** si no hay ningún tesorero activo, un `ADMIN` puede designar al primero.
 - La regla de "no dejar a la Junta sin administradores activos" cuenta `ADMIN` y `TESORERO` (`ROLES_DIRECTIVA`).
 - `db:reset-admin <cédula>` y la creación del primer administrador en producción aceptan cuentas `ADMIN` o `TESORERO`.

@@ -57,7 +57,6 @@ Las imágenes son capturas reales del sistema tomadas con **datos de prueba**: l
 - Un computador, tableta o teléfono con conexión a internet.
 - Un navegador actualizado (Chrome, Edge, Firefox o Safari).
 - Para entrar a "Mi cuenta" o al panel de Gestión: una **cuenta** creada por la directiva y su **cédula** y **contraseña**.
-- Para la verificación en dos pasos (opcional, directiva): una aplicación de autenticación en el teléfono, como Google Authenticator, Microsoft Authenticator o Authy.
 
 ## 4. Acceso al sistema e inicio de sesión
 
@@ -100,16 +99,6 @@ Las imágenes son capturas reales del sistema tomadas con **datos de prueba**: l
 **Resultado:** el mensaje "Contraseña actualizada. Redirigiendo..." y la entrada a su pantalla.
 
 **Consideraciones:** la contraseña nueva debe tener **al menos 10 caracteres**, combinar **letras y números**, no contener su cédula y no ser demasiado común (por ejemplo, "Junta2026" o "password123" se rechazan). Con **Cancelar y salir** vuelve al inicio sin cambiarla.
-
-### Segundo paso: código de verificación (solo si lo activó)
-
-Si un administrador activó la verificación en dos pasos (sección 8.9), después de la contraseña el sistema pide el **Código de verificación**:
-
-1. Abra la aplicación de autenticación en su teléfono.
-2. Escriba el código de 6 dígitos que muestra para "Junta La Jones".
-3. Pulse **Verificar código**.
-
-Si perdió el teléfono, escriba uno de sus **códigos de recuperación** (formato `ABCDE-FGHIJ`); cada uno sirve una sola vez. **Volver** regresa al formulario de cédula y contraseña.
 
 ### ¿Olvidó su contraseña?
 
@@ -436,24 +425,6 @@ En **Historial financiero → Recibos** filtre por fechas, estado (**Vigentes**,
 
 ![Noticias](assets/29-noticias-admin.png)
 
-#### Verificación en dos pasos (recomendada para la directiva)
-
-**Objetivo:** que nadie pueda entrar a su cuenta aunque conozca su contraseña.
-
-**Procedimiento:**
-
-1. Instale una aplicación de autenticación en su teléfono.
-2. En el sistema, vaya a **Mi cuenta** y baje hasta **Verificación en dos pasos**. Pulse **Activar**.
-3. En la aplicación, agregue una cuenta escaneando el código QR (o escriba la clave que aparece debajo).
-4. Escriba el **Código de 6 dígitos** que muestra la aplicación y pulse **Confirmar**.
-5. Guarde los **8 códigos de recuperación** en un lugar seguro (por ejemplo, impresos) y pulse **Ya los guardé**.
-
-**Resultado:** desde ese momento, al ingresar se le pedirá el código.
-
-![Verificación en dos pasos](assets/30-verificacion-dos-pasos.png)
-
-**Consideraciones:** para desactivarla, escriba su contraseña en **Contraseña actual para desactivarla** y pulse **Desactivar**. Si pierde el teléfono y los códigos, necesita ayuda técnica (sección 15).
-
 ### 8.10 WhatsApp Web
 
 1. Pulse **WhatsApp Web** en el menú lateral.
@@ -494,7 +465,7 @@ Si el servicio de WhatsApp no está instalado o se detuvo, el panel lo indica y 
 | "Sin conexión" o "error del servidor" | Problema de red o del servidor; intente de nuevo con **Reintentar** |
 | "No se puede generar el cobro anual porque existen lotes sin su superficie." | Complete la superficie de los lotes listados |
 
-Las confirmaciones (por ejemplo, "Verificación en dos pasos activada.") aparecen en la esquina superior derecha. Las acciones que no se pueden deshacer (cancelar una asamblea, anular un pago, eliminar una noticia o un turno) piden confirmación antes.
+Las confirmaciones (por ejemplo, "Noticia publicada.") aparecen en la esquina superior derecha. Las acciones que no se pueden deshacer (cancelar una asamblea, anular un pago, eliminar una noticia o un turno) piden confirmación antes.
 
 ## 11. Solución de problemas frecuentes
 
@@ -526,7 +497,7 @@ Las confirmaciones (por ejemplo, "Verificación en dos pasos activada.") aparece
 ## 13. Recomendaciones de uso
 
 - No comparta su contraseña; en equipos compartidos, desmarque "Recordar mi sesión" y cierre la sesión al terminar.
-- La directiva debe activar la verificación en dos pasos y mantener **al menos dos administradores** activos.
+- La directiva debe mantener **al menos dos administradores** activos y usar contraseñas largas que no comparta.
 - Registre la superficie real de cada lote antes de emitir el pago anual.
 - Revise la auditoría periódicamente, en especial las alertas de intentos de ingreso.
 - Adjunte el comprobante bancario de cada pago para tener respaldo.
@@ -546,13 +517,11 @@ Las confirmaciones (por ejemplo, "Verificación en dos pasos activada.") aparece
 | Recibo | Comprobante de un pago (`REC-…`, `REC-AGUA-…`) |
 | Egreso | Gasto o pago que hace la Junta |
 | Tarifa | Valor vigente de un concepto (agua por hectárea, multas) |
-| Verificación en dos pasos | Código del teléfono que se pide además de la contraseña |
 | Auditoría | Registro de quién hizo cada cambio y cuándo |
 
 ## 15. Limitaciones conocidas
 
-- Algunas operaciones existen en el servidor pero aún **no tienen pantalla**: quitar la verificación en dos pasos de otra cuenta, eliminar un usuario registrado por error, crear sectores, anular un egreso y anular o crear una obligación manual. Requieren ayuda técnica (detalle en [`OBSERVACIONES.md`](OBSERVACIONES.md)).
+- Algunas operaciones existen en el servidor pero aún **no tienen pantalla**: eliminar un usuario registrado por error, crear sectores, anular un egreso y anular o crear una obligación manual. Requieren ayuda técnica (detalle en [`OBSERVACIONES.md`](OBSERVACIONES.md)).
 - La recuperación de contraseña es presencial; no hay recuperación por correo.
 - La convocatoria por WhatsApp usa WhatsApp Web (no oficial) y depende del teléfono de la Junta.
 - Los mapas necesitan internet.
-- La verificación en dos pasos solo está disponible para la directiva.
