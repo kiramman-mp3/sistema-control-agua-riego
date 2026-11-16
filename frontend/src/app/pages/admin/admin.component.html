@@ -24,21 +24,23 @@
       }
 
       <!-- Finanzas: tres apartados propios en escritorio y tablet -->
-      <div class="sidebar__group" role="group" aria-labelledby="menu-finanzas">
-        <span class="sidebar__group-title" id="menu-finanzas">Finanzas</span>
-        @for (item of menuFinanzas; track item.ruta) {
-          <a
-            class="nav-item"
-            [routerLink]="item.ruta"
-            routerLinkActive="active"
-            ariaCurrentWhenActive="page"
-            [title]="item.etiqueta"
-          >
-            <i [class]="item.icono" aria-hidden="true"></i>
-            <span class="nav-item__label nav-item__label--full">{{ item.etiqueta }}</span>
-          </a>
-        }
-      </div>
+      @if (menuFinanzas().length) {
+        <div class="sidebar__group" role="group" aria-labelledby="menu-finanzas">
+          <span class="sidebar__group-title" id="menu-finanzas">Finanzas</span>
+          @for (item of menuFinanzas(); track item.ruta) {
+            <a
+              class="nav-item"
+              [routerLink]="item.ruta"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+              [title]="item.etiqueta"
+            >
+              <i [class]="item.icono" aria-hidden="true"></i>
+              <span class="nav-item__label nav-item__label--full">{{ item.etiqueta }}</span>
+            </a>
+          }
+        </div>
+      }
 
       <div class="sidebar__group" role="group" aria-labelledby="menu-directiva">
         <span class="sidebar__group-title" id="menu-directiva">Directiva</span>
@@ -71,7 +73,7 @@
         </button>
         @if (finanzasAbierto()) {
           <div class="tab-more__panel" id="panel-finanzas" animate.enter="tab-more__panel--enter">
-            @for (item of [...menuFinanzas, ...menuDirectiva]; track item.ruta) {
+            @for (item of [...menuFinanzas(), ...menuDirectiva]; track item.ruta) {
               <a
                 class="tab-more__item"
                 [routerLink]="item.ruta"

@@ -78,7 +78,10 @@ export class AdminService {
   }
 
   /** Crea la cuenta de acceso de un usuario; la respuesta trae la contraseña temporal. */
-  crearCuenta(personaId: number, rol: 'ADMIN' | 'USUARIO'): Observable<RespuestaCredencial> {
+  crearCuenta(
+    personaId: number,
+    rol: 'ADMIN' | 'TESORERO' | 'USUARIO',
+  ): Observable<RespuestaCredencial> {
     return this.http.post<RespuestaCredencial>(`${this.baseUrl}/personas/${personaId}/cuenta`, {
       rol,
     });

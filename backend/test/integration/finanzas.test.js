@@ -12,7 +12,7 @@ let admin, usuario, vecino, aguaId, multaAsambleaId;
 
 before(async () => {
   await resetDatabase();
-  admin = await crearUsuario({ rol: 'ADMIN' });
+  admin = await crearUsuario({ rol: 'TESORERO' });
   usuario = await crearUsuario();
   vecino = await crearUsuario();
   aguaId = await conceptoId('AGUA_ANUAL');

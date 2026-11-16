@@ -14,7 +14,7 @@ const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
 const endpoint = () => `/api/financiero/pagos/${pagoId}/comprobante`;
 before(async () => {
   await resetDatabase();
-  admin = await crearUsuario({ rol: 'ADMIN' });
+  admin = await crearUsuario({ rol: 'TESORERO' });
   titular = await crearUsuario();
   vecino = await crearUsuario();
   const ob = await crearObligacion({ personaId: titular.personaId });

@@ -73,4 +73,36 @@ describe('authGuard', () => {
     );
     expect(resultado).toBe(true);
   });
+
+  it('las rutas financieras solo admiten al tesorero aunque el panel admita a toda la directiva', () => {
+    const evaluarRol = (rol: string) => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          {
+            provide: AuthService,
+            useValue: {
+              isLoggedIn: () => true,
+              debeCambiarPassword: () => false,
+              getUser: () => ({ rol }),
+            },
+          },
+        ],
+      });
+      const navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      const cobros = {
+        data: { roles: ['TESORERO'] },
+        parent: { data: { roles: ['ADMIN', 'TESORERO'] }, parent: null },
+      };
+      const resultado = TestBed.runInInjectionContext(() =>
+        authGuard(cobros as any, { url: '/admin/cobros/cobrar' } as any),
+      );
+      return { resultado, navegar };
+    };
+    const admin = evaluarRol('ADMIN');
+    expect(admin.resultado).toBe(false);
+    expect(admin.navegar).toHaveBeenCalledWith(['/mi-cuenta']);
+    expect(evaluarRol('TESORERO').resultado).toBe(true);
+  });
 });

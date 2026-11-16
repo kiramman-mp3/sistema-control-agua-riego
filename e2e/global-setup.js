@@ -40,7 +40,8 @@ module.exports = async function globalSetup() {
   // Base limpia y sembrada con datos realistas (nunca la de desarrollo: DB_NAME es fijo).
   const seed = spawnSync('node', ['src/db/cli.js', 'seed', '--reset'], { cwd: backend, env: entorno, encoding: 'utf8' });
   if (seed.status !== 0) throw new Error(`Falló el seed de la base E2E:\n${seed.stdout}\n${seed.stderr}`);
-  const admin = /Administrador:\s+(\d+)\s+\((.+)\)/.exec(seed.stdout);
+  // La sesión de las pruebas es la del tesorero: tiene todas las funciones de la directiva y las finanzas.
+  const admin = /Tesorero:\s+(\d+)\s+\((.+)\)/.exec(seed.stdout);
   const usuario = /Usuario:\s+(\d+)\s+\((.+)\)/.exec(seed.stdout);
   if (!admin || !usuario) throw new Error(`No se pudieron leer las credenciales del seed:\n${seed.stdout}`);
   fs.mkdirSync(path.dirname(ARCHIVO_CREDENCIALES), { recursive: true });

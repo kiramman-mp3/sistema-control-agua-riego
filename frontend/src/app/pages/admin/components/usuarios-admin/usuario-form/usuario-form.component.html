@@ -189,7 +189,8 @@
                 <label for="com-rol">Rol</label>
                 <select id="com-rol" class="input" name="rol" [(ngModel)]="form.rol">
                   <option value="USUARIO">Usuario (consulta su propia información)</option>
-                  <option value="ADMIN">Administrador (directiva, acceso total)</option>
+                  <option value="ADMIN">Administrador (directiva, sin finanzas)</option>
+                  <option value="TESORERO">Tesorero (directiva, con finanzas)</option>
                 </select>
               </div>
               <p class="text-muted small">
@@ -198,9 +199,8 @@
             }
           } @else if (cuenta) {
             <p class="text-muted small">
-              {{ cuenta.rol === 'ADMIN' ? 'Administrador' : 'Usuario' }} · cuenta
-              {{ cuenta.estado | lowercase }}. Si olvidó su contraseña, genere una temporal: deberá
-              cambiarla al ingresar.
+              {{ etiquetaRol(cuenta.rol) }} · cuenta {{ cuenta.estado | lowercase }}. Si olvidó su
+              contraseña, genere una temporal: deberá cambiarla al ingresar.
             </p>
             <div>
               <button
@@ -223,6 +223,7 @@
               >
                 <option value="USUARIO">Usuario</option>
                 <option value="ADMIN">Administrador</option>
+                <option value="TESORERO">Tesorero</option>
               </select>
               <button
                 type="button"

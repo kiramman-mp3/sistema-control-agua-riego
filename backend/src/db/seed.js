@@ -136,7 +136,7 @@ function generarPersonas(azar, total) {
 }
 
 async function crearPersonasYCuentas(conexion, azar, { totalUsuarios, password }) {
-  // La directiva va primero: sus cuentas son las administradoras.
+  // La directiva va primero: el presidente es ADMIN y la tesorera, TESORERO (la única con acceso a las finanzas).
   const directiva = [
     { cargo: 'Presidente', nombres: 'Carlos Eduardo', apellidos: 'Moreta Salazar' },
     { cargo: 'Tesorera', nombres: 'María Rosa', apellidos: 'Quispe Toapanta' }
@@ -154,12 +154,12 @@ async function crearPersonasYCuentas(conexion, azar, { totalUsuarios, password }
   const rol = Object.fromEntries(roles.map((x) => [x.codigo, x.id]));
   const hash = await hashPassword(password);
 
-  // Cuentas: la directiva (ADMIN), un usuario de demostración y una parte de los usuarios,
+  // Cuentas: la directiva (ADMIN y TESORERO), un usuario de demostración y una parte de los usuarios,
   // estos últimos con contraseña temporal pendiente de cambio, como al crearlas desde la interfaz.
   const conCuenta = personas.slice(0, directiva.length + 1)
     .concat(personas.slice(directiva.length + 1).filter(() => azar.probabilidad(0.25)));
   const filas = conCuenta.map((p, i) => [
-    p.id, i < directiva.length ? rol.ADMIN : rol.USUARIO, hash, i > directiva.length, 'ACTIVA'
+    p.id, i < directiva.length ? (directiva[i].cargo === 'Tesorera' ? rol.TESORERO : rol.ADMIN) : rol.USUARIO, hash, i > directiva.length, 'ACTIVA'
   ]);
   const [c] = await conexion.query(
     'INSERT INTO cuentas (persona_id, rol_id, password_hash, debe_cambiar_password, estado) VALUES ?', [filas]
@@ -167,7 +167,7 @@ async function crearPersonasYCuentas(conexion, azar, { totalUsuarios, password }
   conCuenta.forEach((p, i) => { p.cuentaId = c.insertId + i; });
   await conexion.query('UPDATE cuentas SET creada_por_cuenta_id = ? WHERE id <> ?', [personas[0].cuentaId, personas[0].cuentaId]);
 
-  return { personas, admin: personas[0], demo: personas[directiva.length], cuentas: conCuenta.length };
+  return { personas, admin: personas[0], tesorero: personas[1], demo: personas[directiva.length], cuentas: conCuenta.length };
 }
 
 async function crearSectoresYLotes(conexion, azar, personas, fechaInicio) {
@@ -536,7 +536,7 @@ async function sembrar(conexion, { hoy = hoyEcuador(), semilla = 2026, totalUsua
   await conexion.beginTransaction();
   try {
     log('[seed] Usuarios, cuentas, sectores y lotes...');
-    const { personas, admin, demo, cuentas } = await crearPersonasYCuentas(conexion, azar, { totalUsuarios, password });
+    const { personas, admin, tesorero, demo, cuentas } = await crearPersonasYCuentas(conexion, azar, { totalUsuarios, password });
     const personasPorId = new Map(personas.map((p) => [p.id, p]));
     const { lotes } = await crearSectoresYLotes(conexion, azar, personas, fechaInicio);
     const turnos = await crearTurnos(conexion, lotes, fechaInicio);
@@ -648,6 +648,7 @@ async function sembrar(conexion, { hoy = hoyEcuador(), semilla = 2026, totalUsua
       ...resumen, anualAgua, usuarios: personas.length, cuentas, lotes: lotes.length, turnos, egresos, bienes, actividades, noticias,
       anulaciones: recientes.length, retirados: retiros.size,
       admin: { cedula: admin.cedula, nombre: `${admin.nombres} ${admin.apellidos}` },
+      tesorero: { cedula: tesorero.cedula, nombre: `${tesorero.nombres} ${tesorero.apellidos}` },
       demo: { cedula: demo.cedula, nombre: `${demo.nombres} ${demo.apellidos}` }
     };
   } catch (error) {

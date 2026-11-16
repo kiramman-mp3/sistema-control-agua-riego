@@ -1,4 +1,5 @@
 import { Route, Routes } from '@angular/router';
+import { ROLES } from '../../core/auth/session';
 import { GRUPOS_FINANZAS, grupoDeSeccion } from './components/finanzas/grupos-finanzas';
 
 const cargarFinanzas = () =>
@@ -152,21 +153,21 @@ export const ADMIN_ROUTES: Routes = [
   {
     path: 'cobros/:seccion',
     title: 'Cobros y pagos · Junta La Jones',
-    data: { grupo: 'cobros' },
+    data: { grupo: 'cobros', roles: [ROLES.TESORERO] },
     loadComponent: cargarFinanzas,
   },
   { path: 'ajustes', pathMatch: 'full', redirectTo: 'ajustes/tarifas' },
   {
     path: 'ajustes/:seccion',
     title: 'Tarifas y pago anual · Junta La Jones',
-    data: { grupo: 'ajustes' },
+    data: { grupo: 'ajustes', roles: [ROLES.TESORERO] },
     loadComponent: cargarFinanzas,
   },
   { path: 'historial', pathMatch: 'full', redirectTo: 'historial/pagos' },
   {
     path: 'historial/:seccion',
     title: 'Historial financiero · Junta La Jones',
-    data: { grupo: 'historial' },
+    data: { grupo: 'historial', roles: [ROLES.TESORERO] },
     loadComponent: cargarFinanzas,
   },
   // Enlaces antiguos (/admin/finanzas/egresos) llevan a su nuevo apartado conservando ?nuevo=…

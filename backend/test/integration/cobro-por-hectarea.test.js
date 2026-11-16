@@ -15,7 +15,7 @@ const cuotaDe = async (loteId, anio) => {
 
 before(async () => {
   await resetDatabase();
-  admin = await crearUsuario({ rol: 'ADMIN' });
+  admin = await crearUsuario({ rol: 'TESORERO' });
   titular = await crearUsuario();
   otro = await crearUsuario();
   sector = await crearSector('La Jones Alta');

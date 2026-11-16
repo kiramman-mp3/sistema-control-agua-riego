@@ -7,11 +7,12 @@ const app = require('../../src/app');
 const db = require('../../src/config/db');
 const { crearUsuario, auth, crearObligacion, crearSector, crearLote } = require('../helpers/fixtures');
 
-let admin, usuario, vecino;
+let admin, tesorero, usuario, vecino;
 
 before(async () => {
   await resetDatabase();
   admin = await crearUsuario({ rol: 'ADMIN' });
+  tesorero = await crearUsuario({ rol: 'TESORERO' });
   usuario = await crearUsuario({ rol: 'USUARIO' });
   vecino = await crearUsuario({ rol: 'USUARIO' });
 
@@ -76,9 +77,11 @@ test('un usuario ve solo sus propios datos aunque pida los de otro', async () =>
   assert.ok(pagos.body.data.every((p) => p.persona_id === usuario.personaId));
 });
 
-test('el administrador accede a todas las áreas', async () => {
+test('el tesorero accede a todas las áreas; el administrador, a todas menos las finanzas', async () => {
   for (const ruta of ['/api/personas', '/api/financiero/balance', '/api/eventos', '/api/auditoria', '/api/inventario', '/api/planes']) {
-    assert.equal((await request(app).get(ruta).set(auth(admin))).status, 200, ruta);
+    assert.equal((await request(app).get(ruta).set(auth(tesorero))).status, 200, `tesorero ${ruta}`);
+    const esperado = ruta === '/api/financiero/balance' ? 403 : 200;
+    assert.equal((await request(app).get(ruta).set(auth(admin))).status, esperado, `administrador ${ruta}`);
   }
 });
 
@@ -95,7 +98,7 @@ test('al crear una cuenta se entrega una contraseña temporal aleatoria que obli
   assert.equal((await request(app).get('/api/auth/me').set({ Authorization: `Bearer ${login.body.token}` })).status, 403);
 });
 
-test('solo existen los roles ADMIN y USUARIO al crear cuentas', async () => {
+test('solo existen los roles ADMIN, TESORERO y USUARIO al crear cuentas', async () => {
   const res = await request(app).post('/api/personas').set(auth(admin)).send({
     cedula: '1712345675', nombres: 'Otro', apellidos: 'Rol', crearCuenta: true, rol: 'SECRETARIO'
   });
