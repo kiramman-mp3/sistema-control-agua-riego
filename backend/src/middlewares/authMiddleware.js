@@ -128,8 +128,11 @@ function verificarRol(rolesPermitidos) {
 /** Atajo: token válido + rol. */
 const requiere = (roles) => [verificarToken, verificarRol(roles)];
 
-/** Atajo para las operaciones de la directiva (rol ADMIN). */
-const soloAdmin = requiere(['ADMIN']);
+/** Atajo para las operaciones de la directiva (roles ADMIN y TESORERO). */
+const soloAdmin = requiere(['ADMIN', 'TESORERO']);
+
+/** Atajo para la parte financiera: solo el tesorero. */
+const soloTesorero = requiere(['TESORERO']);
 
 const DURACION = { [ALCANCE_CAMBIO_PASSWORD]: '15m', [ALCANCE_VERIFICAR_TOTP]: '5m' };
 
@@ -158,5 +161,6 @@ module.exports = {
   verificarRol,
   requiere,
   soloAdmin,
+  soloTesorero,
   firmarToken
 };

@@ -18,7 +18,7 @@ export interface LoginResponse {
     nombres: string;
     apellidos: string;
     email: string;
-    rol: 'ADMIN' | 'USUARIO';
+    rol: 'ADMIN' | 'TESORERO' | 'USUARIO';
     rolNombre: string;
     debeCambiarPassword: boolean;
   };
@@ -155,7 +155,14 @@ export class AuthService {
     return this.getUser()?.debeCambiarPassword === true;
   }
 
+  /** Directiva: administrador o tesorero. */
   esAdmin(): boolean {
-    return this.getUser()?.rol === ROLES.ADMIN;
+    const rol = this.getUser()?.rol;
+    return rol === ROLES.ADMIN || rol === ROLES.TESORERO;
+  }
+
+  /** Solo el tesorero accede a la parte financiera. */
+  esTesorero(): boolean {
+    return this.getUser()?.rol === ROLES.TESORERO;
   }
 }

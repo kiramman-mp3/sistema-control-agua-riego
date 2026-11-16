@@ -4,6 +4,7 @@ import { DashboardComponent } from './dashboard.component';
 import { DashboardResumen } from '../../../core/models/api-payloads';
 import { TestBed } from '@angular/core/testing';
 import { AdminService } from '../../../core/services/admin.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { ChangeDetectorRef } from '@angular/core';
 
 const resumen = {
@@ -39,13 +40,14 @@ describe('Dashboard de administración', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: AdminService, useValue: admin },
+        { provide: AuthService, useValue: { esTesorero: () => true } },
         { provide: ChangeDetectorRef, useValue: cdr },
       ],
     });
     const component = TestBed.runInInjectionContext(() => new DashboardComponent());
     component.ngOnInit();
     expect(admin.getDashboardResumen).toHaveBeenCalled();
-    expect(component.resumen?.finanzas.carteraPendiente).toBe(1200);
+    expect(component.resumen?.finanzas?.carteraPendiente).toBe(1200);
     expect(component.resumen?.comunidad.usuariosActivos).toBe(114);
     expect(component.cargandoResumen).toBe(false);
     expect(component.errorCarga).toBe('');
@@ -56,6 +58,7 @@ describe('Dashboard de administración', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: AdminService, useValue: admin },
+        { provide: AuthService, useValue: { esTesorero: () => true } },
         { provide: ChangeDetectorRef, useValue: cdr },
       ],
     });
@@ -63,5 +66,23 @@ describe('Dashboard de administración', () => {
     component.ngOnInit();
     expect(component.resumen).toBeNull();
     expect(component.errorCarga).not.toBe('');
+  });
+
+  it('para quien no es tesorero no hay finanzas ni atajos de cobro', () => {
+    const sinFinanzas: DashboardResumen = { ...resumen, finanzas: null, cobranza: null };
+    const admin = { getDashboardResumen: vi.fn(() => of({ status: 'OK', data: sinFinanzas })) };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: AdminService, useValue: admin },
+        { provide: AuthService, useValue: { esTesorero: () => false } },
+        { provide: ChangeDetectorRef, useValue: cdr },
+      ],
+    });
+    const component = TestBed.runInInjectionContext(() => new DashboardComponent());
+    component.ngOnInit();
+    expect(component.esTesorero).toBe(false);
+    expect(component.resumen?.finanzas).toBeNull();
+    expect(component.resumen?.cobranza).toBeNull();
+    expect(component.resumen?.comunidad.usuariosActivos).toBe(114);
   });
 });

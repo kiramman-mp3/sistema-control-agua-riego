@@ -155,7 +155,7 @@ async function deleteSector(req, res) {
   const [[{ lotesCount }]] = await db.query('SELECT COUNT(*) AS lotesCount FROM lotes WHERE sector_id = ? AND activo = TRUE', [id]);
   if (lotesCount > 0) throw conflict('No se puede eliminar el sector porque tiene lotes activos asignados.');
   const [[{ turnosCount }]] = await db.query(
-    'SELECT COUNT(*) AS turnosCount FROM turnos_riego t JOIN lotes l ON l.id = t.lote_id WHERE l.sector_id = ? AND t.estado = "ACTIVO"',
+    'SELECT COUNT(*) AS turnosCount FROM turnos_riego WHERE sector_id = ? AND estado = "ACTIVO"',
     [id]
   );
   if (turnosCount > 0) throw conflict('No se puede eliminar el sector porque tiene turnos de riego asociados.');
@@ -341,11 +341,6 @@ async function linkPersonaLote(req, res) {
       `INSERT INTO persona_lotes (persona_id, lote_id, tipo_relacion, porcentaje, fecha_desde, observacion) VALUES (?, ?, ?, ?, ?, ?)`,
       [datos.persona_id, loteId, datos.tipo_relacion, PORCENTAJE_TITULARIDAD, hoy(), datos.observacion]
     );
-    // Los turnos activos del lote siguen al nuevo titular.
-    const [turnos] = await conexion.query(
-      "UPDATE turnos_riego SET persona_id = ? WHERE lote_id = ? AND estado = 'ACTIVO' AND persona_id <> ?",
-      [datos.persona_id, loteId, datos.persona_id]
-    );
     // La deuda del agua sigue al lote: las cuotas anuales pendientes pasan al nuevo titular.
     const deudaTransferida = await finanzas.transferirDeudaAnualDeLote(conexion, { loteId, personaId: datos.persona_id });
     // El traspaso mueve deuda: su auditoría va en la misma transacción.
@@ -358,25 +353,23 @@ async function linkPersonaLote(req, res) {
         lote: lotes[0].codigo,
         anterior: anterior && { persona_id: anterior.persona_id, tipo_relacion: anterior.tipo_relacion, desde: anterior.fecha_desde },
         nuevo: { persona_id: datos.persona_id, tipo_relacion: datos.tipo_relacion },
-        turnosReasignados: turnos.affectedRows,
         deudaTransferida: deudaTransferida.obligaciones.length
           ? { obligaciones: deudaTransferida.obligaciones.map(({ id, anio, valor }) => ({ id, anio, valor })), total: deudaTransferida.total }
           : undefined
       }
     });
-    return { lote: lotes[0], nuevo, anterior, turnosReasignados: turnos.affectedRows, deudaTransferida };
+    return { lote: lotes[0], nuevo, anterior, deudaTransferida };
   });
   const { obligaciones: deuda, total: deudaTotal } = resultado.deudaTransferida;
   const avisoDeuda = deuda.length
     ? ` ${deuda.length} cuota(s) anual(es) de agua pendiente(s) del lote (total $${deudaTotal.toFixed(2)}) pasaron al nuevo titular.`
     : '';
   const message = resultado.anterior
-    ? `Titularidad transferida a ${resultado.nuevo.nombre}.${resultado.turnosReasignados ? ` ${resultado.turnosReasignados} turno(s) de riego pasaron al nuevo titular.` : ''}${avisoDeuda}`
+    ? `Titularidad transferida a ${resultado.nuevo.nombre}.${avisoDeuda}`
     : 'Titularidad asignada correctamente. El lote ahora pertenece al usuario seleccionado.';
   return res.json({
     status: 'OK',
     message,
-    turnosReasignados: resultado.turnosReasignados,
     deudaTransferida: deuda.length ? { obligaciones: deuda.map(({ id, anio, valor }) => ({ id, anio, valor })), total: deudaTotal } : undefined
   });
 }

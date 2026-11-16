@@ -2,7 +2,7 @@ const express = require('express');
 const financieroController = require('../controllers/financieroController');
 const comprobantes = require('../controllers/pagoComprobanteController');
 const { recibirArchivo } = require('../services/documentStorage');
-const { verificarToken, soloAdmin } = require('../middlewares/authMiddleware');
+const { verificarToken, soloTesorero } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -24,8 +24,8 @@ const router = express.Router();
  *     security: [{ bearerAuth: [] }]
  */
 router.get('/conceptos', verificarToken, financieroController.getConceptos);
-router.get('/tarifas', ...soloAdmin, financieroController.getTarifas);
-router.post('/tarifas', ...soloAdmin, financieroController.createTarifa);
+router.get('/tarifas', ...soloTesorero, financieroController.getTarifas);
+router.post('/tarifas', ...soloTesorero, financieroController.createTarifa);
 
 /**
  * @openapi
@@ -50,9 +50,9 @@ router.post('/tarifas', ...soloAdmin, financieroController.createTarifa);
  *     security: [{ bearerAuth: [] }]
  */
 router.get('/obligaciones', verificarToken, financieroController.getObligaciones);
-router.post('/obligaciones', ...soloAdmin, financieroController.createObligacionManual);
-router.get('/obligaciones/multas', ...soloAdmin, financieroController.getObligacionesMultas);
-router.post('/obligaciones/:id/anular', ...soloAdmin, financieroController.anularObligacion);
+router.post('/obligaciones', ...soloTesorero, financieroController.createObligacionManual);
+router.get('/obligaciones/multas', ...soloTesorero, financieroController.getObligacionesMultas);
+router.post('/obligaciones/:id/anular', ...soloTesorero, financieroController.anularObligacion);
 
 /**
  * @openapi
@@ -78,7 +78,7 @@ router.get('/pagos/:id', verificarToken, financieroController.getPagoById);
  * /financiero/pagos/{id}/comprobante:
  *   post:
  *     tags: [Gestión Financiera]
- *     summary: Adjuntar o reemplazar comprobante bancario de un pago vigente (ADMIN)
+ *     summary: Adjuntar o reemplazar comprobante bancario de un pago vigente (TESORERO)
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
@@ -95,17 +95,17 @@ router.get('/pagos/:id', verificarToken, financieroController.getPagoById);
  *       '200': { description: Comprobante guardado }
  *   get:
  *     tags: [Gestión Financiera]
- *     summary: Descargar comprobante bancario (ADMIN o titular del pago)
+ *     summary: Descargar comprobante bancario (TESORERO o titular del pago)
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:
  *       '200': { description: Archivo del comprobante bancario }
  */
-router.post('/pagos/:id/comprobante', ...soloAdmin, recibirArchivo, comprobantes.general.subir);
+router.post('/pagos/:id/comprobante', ...soloTesorero, recibirArchivo, comprobantes.general.subir);
 router.get('/pagos/:id/comprobante', verificarToken, comprobantes.general.descargar);
-router.post('/pagos', ...soloAdmin, financieroController.registrarPago);
-router.post('/pagos/:id/anular', ...soloAdmin, financieroController.anularPago);
+router.post('/pagos', ...soloTesorero, financieroController.registrarPago);
+router.post('/pagos/:id/anular', ...soloTesorero, financieroController.anularPago);
 
 /**
  * @openapi
@@ -129,17 +129,17 @@ router.post('/pagos/:id/anular', ...soloAdmin, financieroController.anularPago);
  *     summary: Historial anual de ingresos, egresos y balance agrupado por mes
  *     security: [{ bearerAuth: [] }]
  */
-router.get('/egresos', ...soloAdmin, financieroController.getEgresos);
-router.post('/egresos', ...soloAdmin, financieroController.createEgreso);
-router.post('/egresos/:id/anular', ...soloAdmin, financieroController.anularEgreso);
-router.get('/balance', ...soloAdmin, financieroController.getBalanceReport);
-router.get('/historial', ...soloAdmin, financieroController.getHistorialAnual);
+router.get('/egresos', ...soloTesorero, financieroController.getEgresos);
+router.post('/egresos', ...soloTesorero, financieroController.createEgreso);
+router.post('/egresos/:id/anular', ...soloTesorero, financieroController.anularEgreso);
+router.get('/balance', ...soloTesorero, financieroController.getBalanceReport);
+router.get('/historial', ...soloTesorero, financieroController.getHistorialAnual);
 /**
  * @openapi
  * /financiero/agua-anual/obligaciones:
  *   post:
  *     tags: [Gestión Financiera]
- *     summary: Emitir (o simular con simular=true) la obligación anual de agua del año para los usuarios activos con lote (ADMIN). La cuota de cada lote es el valor por hectárea por sus hectáreas (m² / 10.000). Sin valor_hectarea usa la tarifa AGUA_ANUAL (por hectárea) vigente al 1 de enero.
+ *     summary: Emitir (o simular con simular=true) la obligación anual de agua del año para los usuarios activos con lote (TESORERO). La cuota de cada lote es el valor por hectárea por sus hectáreas (m² / 10.000). Sin valor_hectarea usa la tarifa AGUA_ANUAL (por hectárea) vigente al 1 de enero.
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
@@ -158,19 +158,19 @@ router.get('/historial', ...soloAdmin, financieroController.getHistorialAnual);
  * /financiero/agua-anual/resumen:
  *   get:
  *     tags: [Gestión Financiera]
- *     summary: Obligaciones anuales de agua emitidas, cobradas y pendientes de un año (ADMIN)
+ *     summary: Obligaciones anuales de agua emitidas, cobradas y pendientes de un año (TESORERO)
  *     security: [{ bearerAuth: [] }]
  * /financiero/agua-anual/obligaciones/{personaId}:
  *   get:
  *     tags: [Gestión Financiera]
- *     summary: Obligaciones anuales de agua pendientes de un usuario (ADMIN)
+ *     summary: Obligaciones anuales de agua pendientes de un usuario (TESORERO)
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - { in: path, name: personaId, required: true, schema: { type: integer } }
  * /financiero/agua-anual/pagos:
  *   post:
  *     tags: [Gestión Financiera]
- *     summary: Registrar el pago de obligaciones anuales de agua por transferencia o depósito (ADMIN)
+ *     summary: Registrar el pago de obligaciones anuales de agua por transferencia o depósito (TESORERO). Multipart con el campo archivo (comprobante bancario, obligatorio) y los datos del pago; obligacionesIds va como texto JSON.
  *     security: [{ bearerAuth: [] }]
  *   get:
  *     tags: [Gestión Financiera]
@@ -179,28 +179,28 @@ router.get('/historial', ...soloAdmin, financieroController.getHistorialAnual);
  * /financiero/agua-anual/pagos/{id}:
  *   get:
  *     tags: [Gestión Financiera]
- *     summary: Detalle de un pago anual de agua para reimprimir su comprobante (ADMIN o titular)
+ *     summary: Detalle de un pago anual de agua para reimprimir su comprobante (TESORERO o titular)
  *     security: [{ bearerAuth: [] }]
  * /financiero/agua-anual/pagos/{id}/anular:
  *   post:
  *     tags: [Gestión Financiera]
- *     summary: Anular un pago anual de agua y devolver sus obligaciones a PENDIENTE (ADMIN)
+ *     summary: Anular un pago anual de agua y devolver sus obligaciones a PENDIENTE (TESORERO)
  *     security: [{ bearerAuth: [] }]
  * /financiero/agua-anual/obligaciones/{id}/anular:
  *   post:
  *     tags: [Gestión Financiera]
- *     summary: Anular una obligación anual de agua pendiente (ADMIN)
+ *     summary: Anular una obligación anual de agua pendiente (TESORERO)
  *     security: [{ bearerAuth: [] }]
  */
-router.post('/agua-anual/pagos/:id/comprobante', ...soloAdmin, recibirArchivo, comprobantes.agua.subir);
+router.post('/agua-anual/pagos/:id/comprobante', ...soloTesorero, recibirArchivo, comprobantes.agua.subir);
 router.get('/agua-anual/pagos/:id/comprobante', verificarToken, comprobantes.agua.descargar);
-router.get('/agua-anual/resumen', ...soloAdmin, financieroController.getResumenAnualAgua);
-router.post('/agua-anual/obligaciones', ...soloAdmin, financieroController.generarObligacionesAnualesAgua);
-router.get('/agua-anual/obligaciones/:personaId', ...soloAdmin, financieroController.getObligacionesAnualesAgua);
-router.post('/agua-anual/obligaciones/:id/anular', ...soloAdmin, financieroController.anularObligacionAnualAgua);
+router.get('/agua-anual/resumen', ...soloTesorero, financieroController.getResumenAnualAgua);
+router.post('/agua-anual/obligaciones', ...soloTesorero, financieroController.generarObligacionesAnualesAgua);
+router.get('/agua-anual/obligaciones/:personaId', ...soloTesorero, financieroController.getObligacionesAnualesAgua);
+router.post('/agua-anual/obligaciones/:id/anular', ...soloTesorero, financieroController.anularObligacionAnualAgua);
 router.get('/agua-anual/pagos', verificarToken, financieroController.getPagosAnualesAgua);
 router.get('/agua-anual/pagos/:id', verificarToken, financieroController.getPagoAnualAguaById);
-router.post('/agua-anual/pagos', ...soloAdmin, financieroController.registrarPagoAnualAgua);
-router.post('/agua-anual/pagos/:id/anular', ...soloAdmin, financieroController.anularPagoAnualAgua);
+router.post('/agua-anual/pagos', ...soloTesorero, recibirArchivo, financieroController.registrarPagoAnualAgua);
+router.post('/agua-anual/pagos/:id/anular', ...soloTesorero, financieroController.anularPagoAnualAgua);
 
 module.exports = router;

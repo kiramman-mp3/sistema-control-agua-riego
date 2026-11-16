@@ -2,6 +2,7 @@ import { Component, ElementRef, HostListener, computed, inject, signal } from '@
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
+import { AuthService } from '../../core/services/auth.service';
 import { WhatsAppSesionService } from '../../core/services/whatsapp-sesion.service';
 import { WhatsAppPanelComponent } from '../../shared/whatsapp-panel/whatsapp-panel.component';
 
@@ -27,6 +28,7 @@ interface ItemMenu {
 })
 export class AdminComponent {
   readonly whatsapp = inject(WhatsAppSesionService);
+  private readonly auth = inject(AuthService);
   private router = inject(Router);
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -52,7 +54,7 @@ export class AdminComponent {
     { ruta: '/admin/turnos', etiqueta: 'Turnos de agua', corta: 'Turnos', icono: 'ri-drop-line' },
   ];
 
-  readonly menuFinanzas: ItemMenu[] = [
+  private readonly itemsFinanzas: ItemMenu[] = [
     {
       ruta: '/admin/cobros',
       etiqueta: 'Cobros y pagos',
@@ -72,6 +74,9 @@ export class AdminComponent {
       icono: 'ri-history-line',
     },
   ];
+
+  /** Los apartados financieros son solo del tesorero: el resto de la directiva no los ve. */
+  readonly menuFinanzas = computed(() => (this.auth.esTesorero() ? this.itemsFinanzas : []));
 
   readonly menuDirectiva: ItemMenu[] = [
     {
@@ -99,7 +104,7 @@ export class AdminComponent {
     { initialValue: this.router.url },
   );
   readonly enFinanzas = computed(() =>
-    [...this.menuFinanzas, ...this.menuDirectiva].some((i) => this.url().startsWith(i.ruta)),
+    [...this.menuFinanzas(), ...this.menuDirectiva].some((i) => this.url().startsWith(i.ruta)),
   );
 
   @HostListener('document:mousedown', ['$event'])

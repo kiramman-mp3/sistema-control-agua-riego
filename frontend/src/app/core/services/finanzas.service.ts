@@ -206,9 +206,16 @@ export class FinanzasService {
     return tipo === 'AGUA' ? this.anularPagoAnualAgua(id, motivo) : this.anularPago(id, motivo);
   }
 
-  /** Registra el pago de obligaciones anuales de agua (solo transferencia o depósito). */
-  registrarPagoAnualAgua(payload: NuevoPago): Observable<PagoRegistrado> {
-    return this.http.post<PagoRegistrado>(`${this.url}/agua-anual/pagos`, payload);
+  /** Registra el pago de obligaciones anuales de agua (solo transferencia o depósito) con su comprobante bancario. */
+  registrarPagoAnualAgua(payload: NuevoPago, comprobante: File): Observable<PagoRegistrado> {
+    const datos = new FormData();
+    datos.append('persona_id', String(payload.persona_id));
+    datos.append('obligacionesIds', JSON.stringify(payload.obligacionesIds));
+    datos.append('metodo', payload.metodo);
+    datos.append('referencia', payload.referencia ?? '');
+    if (payload.observacion) datos.append('observacion', payload.observacion);
+    datos.append('archivo', comprobante);
+    return this.http.post<PagoRegistrado>(`${this.url}/agua-anual/pagos`, datos);
   }
 
   /**

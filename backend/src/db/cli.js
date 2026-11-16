@@ -48,6 +48,7 @@ async function sembrarBase(flags) {
     console.log(`[seed] ${r.egresos} egresos, ${r.bienes} bienes de inventario, ${r.actividades} actividades del plan anual, ${r.noticias} noticias.`);
     console.log('[seed] Credenciales (todas las cuentas sembradas usan la misma contraseña):');
     console.log(`         Administrador: ${r.admin.cedula} (${r.admin.nombre})`);
+    console.log(`         Tesorero:      ${r.tesorero.cedula} (${r.tesorero.nombre})`);
     console.log(`         Usuario:       ${r.demo.cedula} (${r.demo.nombre})`);
     console.log(`         Contraseña:    ${password}`);
   } finally {

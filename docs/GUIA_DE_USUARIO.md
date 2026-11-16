@@ -2,7 +2,7 @@
 
 **Sistema Integrado de Gestión — Junta de Agua y Riego La Jones (Patate)**
 
-- Versión del sistema: `v1.3.0`
+- Versión del sistema: `v1.3.2`
 - Fecha de la guía: 13 de noviembre de 2026
 - Destinatarios: socios y socias de la Junta, y la directiva
 
@@ -187,7 +187,7 @@ El enlace **Aviso de privacidad** (pie de página y pantalla de ingreso) explica
 ### Ver mis lotes y turnos
 
 1. En **Mi cuenta**, pulse **Ver mis lotes**.
-2. Cada lote muestra su código, sector, ubicación en el mapa, superficie, referencia y sus **turnos de riego**.
+2. Cada lote muestra su código, sector, ubicación en el mapa, superficie, referencia y los **turnos de riego de su sector**.
 3. **Ver en Google Maps** abre la ubicación en Google Maps.
 
 ![Mis lotes](assets/41-mis-lotes.png)
@@ -196,7 +196,7 @@ El enlace **Aviso de privacidad** (pie de página y pantalla de ingreso) explica
 
 ### 8.1 Resumen general
 
-Muestra lo recaudado y lo pendiente, los egresos y el saldo de caja; **Acciones rápidas** (Registrar cobro, Registrar egreso, Registrar usuario, Asignar turno de agua, Convocar asamblea, Convocar minga); el resumen operativo y los próximos eventos.
+Muestra lo recaudado y lo pendiente, los egresos y el saldo de caja; **Acciones rápidas** (Registrar cobro, Registrar egreso, Registrar usuario, Turnos de agua, Convocar asamblea, Convocar minga); el resumen operativo y los próximos eventos.
 
 ### 8.2 Gestión de Usuarios: padrón
 
@@ -214,7 +214,7 @@ Escriba cédula o nombre en el buscador; filtre por sector y por estado (**Activ
 
 1. Vaya a **Gestión de Usuarios → Padrón** y pulse **Nuevo usuario**.
 2. Complete **Cédula**, **Nombres** y **Apellidos** (obligatorios) y, si los tiene, fecha de nacimiento, celular, teléfono convencional, correo y dirección.
-3. Para que pueda entrar al sistema, marque **Generar cuenta de acceso para este usuario** y elija el rol: **Usuario** (consulta su propia información) o **Administrador** (directiva, acceso total).
+3. Para que pueda entrar al sistema, marque **Generar cuenta de acceso para este usuario** y elija el rol: **Usuario** (consulta su propia información), **Administrador** (directiva, sin acceso a las finanzas) o **Tesorero** (directiva con acceso exclusivo a las finanzas).
 4. Pulse **Guardar**.
 
 **Resultado:** el usuario aparece en el padrón. Si creó la cuenta, el sistema muestra **una sola vez** la contraseña temporal: entréguela a la persona en mano.
@@ -242,7 +242,7 @@ Si alguien quedó bloqueado por intentos fallidos, el padrón muestra un aviso c
 2. Busque el lote por código o sector y elija la relación (**Propietario titular** o **Representante**).
 3. Pulse **Asignar lote** o, si ya tenía dueño, **Transferir lote**.
 
-**Consideraciones:** cada lote tiene un solo titular. Al transferir, el sistema muestra antes la deuda de agua del lote: **las cuotas pendientes y los turnos activos pasan al nuevo titular**; lo ya pagado queda en el historial del anterior.
+**Consideraciones:** cada lote tiene un solo titular. Al transferir, el sistema muestra antes la deuda de agua del lote: **las cuotas pendientes pasan al nuevo titular**; lo ya pagado queda en el historial del anterior.
 
 ### 8.3 Gestión de Usuarios: catastro de lotes
 
@@ -312,14 +312,19 @@ En la tarjeta de la asamblea:
 
 ![Turnos de agua](assets/18-turnos.png)
 
-#### Asignar un turno
+#### Crear un turno
 
-1. Vaya a **Turnos de agua** y pulse **Asignar turno**.
-2. Busque y elija al **Usuario**; luego su **Lote beneficiario**.
-3. Elija el **Día**, la hora de **Inicio** y de **Fin**, y observaciones si hace falta.
-4. Pulse **Guardar turno**.
+Los turnos son **por sector**: el agua llega al sector por un mismo canal y la recibe su **representante** en nombre de todos los usuarios del sector.
 
-**Consideraciones:** el sistema rechaza un horario que se cruce con otro turno del mismo sector. Un turno que cruza la medianoche puede durar como máximo 12 horas. El usuario debe tener un lote.
+1. Vaya a **Turnos de agua** y pulse **Nuevo turno**.
+2. Elija el **Sector**, el **Día**, la hora de **Inicio** y de **Fin**, y observaciones si hace falta.
+3. Pulse **Guardar turno**.
+
+**Consideraciones:** el sistema rechaza un horario que se cruce con otro turno del mismo sector. Un turno que cruza la medianoche puede durar como máximo 12 horas.
+
+#### Designar al representante de un sector
+
+En la parte superior de **Turnos de agua** hay una tarjeta por sector con su representante. Pulse **Designar** (o **Cambiar**), busque al usuario por nombre o cédula, elíjalo y pulse **Designar**. **Quitar representante** deja el sector sin él. El representante debe ser un usuario activo.
 
 #### Consultar, editar y eliminar
 
@@ -328,6 +333,8 @@ Use **Tabla** o **Calendario semanal**, filtre por sector, día o texto, y use l
 ![Calendario semanal](assets/19-turnos-calendario.png)
 
 ### 8.6 Finanzas: cobrar y registrar egresos
+
+**Permisos necesarios:** solo el **Tesorero**. Los administradores que no son tesoreros no ven el grupo **Finanzas** ni los datos de cobros y pagos. Si no hay ningún tesorero activo, un administrador puede designar al primero desde **Gestión de Usuarios**; después solo el tesorero gestiona esa cuenta.
 
 #### Cobrar a un usuario
 

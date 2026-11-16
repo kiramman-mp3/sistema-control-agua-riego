@@ -7,7 +7,7 @@
  * Lo comparten AuthService y el interceptor, que no puede inyectar AuthService sin crear una dependencia
  * circular (AuthService -> HttpClient -> interceptor).
  */
-export const ROLES = { ADMIN: 'ADMIN', USUARIO: 'USUARIO' } as const;
+export const ROLES = { ADMIN: 'ADMIN', TESORERO: 'TESORERO', USUARIO: 'USUARIO' } as const;
 export type Rol = (typeof ROLES)[keyof typeof ROLES];
 
 const EXPIRA_KEY = 'junta_expira';

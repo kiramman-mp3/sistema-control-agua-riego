@@ -37,13 +37,13 @@ app.use(helmet({
   // Los mosaicos de OpenStreetMap exigen la cabecera Referer (su política de uso bloquea las peticiones sin ella).
   // Solo se envía el origen del sitio, nunca la ruta ni la consulta.
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  // Solo lo que usa la aplicación: mapas de OpenStreetMap, PDFs y QR generados en el navegador.
+  // Solo lo que usa la aplicación: mapas de OpenStreetMap y satélite de Esri, PDFs y QR generados en el navegador.
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://server.arcgisonline.com'],
       fontSrc: ["'self'", 'data:'],
       connectSrc: ["'self'"],
       frameSrc: ["'self'", 'blob:'],

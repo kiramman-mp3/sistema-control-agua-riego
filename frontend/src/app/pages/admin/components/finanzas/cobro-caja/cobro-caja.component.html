@@ -328,10 +328,19 @@
           </p>
         </div>
         @if (pagoRegistradoId(); as id) {
-          <app-comprobante-bancario [pagoId]="id" [tipo]="pagoRegistradoTipo()" />
-          <p class="field__hint">
-            Puede adjuntar el comprobante bancario ahora o desde el historial de pagos.
-          </p>
+          @if (pagoRegistradoTipo() === 'AGUA') {
+            <app-comprobante-bancario
+              [pagoId]="id"
+              tipo="AGUA"
+              [existente]="true"
+              [editable]="false"
+            />
+          } @else {
+            <app-comprobante-bancario [pagoId]="id" [tipo]="pagoRegistradoTipo()" />
+            <p class="field__hint">
+              Puede adjuntar el comprobante bancario ahora o desde el historial de pagos.
+            </p>
+          }
         }
         <div class="summary">
           <button
@@ -414,6 +423,38 @@
               (ngModelChange)="referencia.set($event)"
             />
           </div>
+
+          @if (pestana() === 'AGUA') {
+            <div class="field">
+              <label for="cobro-comprobante"
+                >Comprobante bancario <span class="req" aria-hidden="true">*</span></label
+              >
+              <input
+                #comprobanteInput
+                id="cobro-comprobante"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                hidden
+                (change)="elegirComprobante(comprobanteInput)"
+              />
+              <button
+                type="button"
+                class="btn btn--outline btn--sm"
+                [disabled]="procesando()"
+                (click)="comprobanteInput.click()"
+              >
+                <i class="ri-upload-2-line" aria-hidden="true"></i>
+                {{ comprobanteArchivo() ? 'Cambiar comprobante' : 'Adjuntar comprobante' }}
+              </button>
+              @if (comprobanteArchivo(); as archivo) {
+                <span class="field__hint" aria-live="polite">{{ archivo.name }}</span>
+              } @else {
+                <span class="field__hint"
+                  >PDF, JPG o PNG · hasta 10 MB. Obligatorio para registrar el pago.</span
+                >
+              }
+            </div>
+          }
 
           <div class="field">
             <label for="cobro-observacion">Observación <span class="opt">(Opcional)</span></label>

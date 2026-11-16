@@ -20,7 +20,7 @@ function validarDatos({ cedula, nombres, apellidos }) {
  */
 async function asegurarAdminInicial(conexion, datos) {
   const [admins] = await conexion.query(
-    "SELECT c.id FROM cuentas c JOIN roles r ON r.id = c.rol_id WHERE r.codigo = 'ADMIN' AND c.estado = 'ACTIVA' LIMIT 1"
+    "SELECT c.id FROM cuentas c JOIN roles r ON r.id = c.rol_id WHERE r.codigo IN ('ADMIN', 'TESORERO') AND c.estado = 'ACTIVA' LIMIT 1"
   );
   if (admins.length) return { creado: false };
 
@@ -76,7 +76,7 @@ async function restablecerPasswordAdmin(conexion, cedulaEntrada) {
     `SELECT c.id, c.estado, p.nombres, p.apellidos FROM personas p
      JOIN cuentas c ON c.persona_id = p.id
      JOIN roles r ON r.id = c.rol_id
-     WHERE p.cedula = ? AND r.codigo = 'ADMIN'`,
+     WHERE p.cedula = ? AND r.codigo IN ('ADMIN', 'TESORERO')`,
     [cedula]
   );
   if (!filas.length) throw new Error(`No existe una cuenta de administrador con la cédula ${cedula}.`);

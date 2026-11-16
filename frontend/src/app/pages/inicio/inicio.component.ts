@@ -58,7 +58,6 @@ export class InicioComponent implements OnInit {
   nombreSectorModal = '';
   sectorIdModal = 0;
   diaSeleccionadoModal = 'TODOS';
-  busquedaModal = '';
   vistaCronograma: 'tabla' | 'tarjetas' = 'tabla';
 
   fecha(ev: EventoItem): { dia: string; mes: string; anio: string } {
@@ -106,7 +105,6 @@ export class InicioComponent implements OnInit {
     this.cargandoCronograma = true;
     this.sectorCronograma = null;
     this.diaSeleccionadoModal = 'TODOS';
-    this.busquedaModal = '';
 
     this.http
       .get<ApiResponse<CronogramaSectorPublico[]>>(
@@ -138,8 +136,6 @@ export class InicioComponent implements OnInit {
 
   diasVisibles(): DiaVisible[] {
     if (!this.sectorCronograma?.dias) return [];
-    const query = this.busquedaModal.trim().toLowerCase();
-
     return this.sectorCronograma.dias
       .filter((d) => {
         if (
@@ -150,16 +146,7 @@ export class InicioComponent implements OnInit {
         }
         return true;
       })
-      .map((d): DiaVisible => {
-        const turnosFiltrados = (d.turnos || []).filter((t) => {
-          if (!query) return true;
-          return (t.lote_codigo || '').toLowerCase().includes(query);
-        });
-        return {
-          ...d,
-          turnosFiltrados,
-        };
-      })
+      .map((d): DiaVisible => ({ ...d, turnosFiltrados: d.turnos || [] }))
       .filter((d) => d.turnosFiltrados.length > 0);
   }
 

@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { withTransaction } = require('../shared/transaction');
-const { personaPermitida } = require('../shared/roles');
+const { personaFinancieraPermitida } = require('../shared/roles');
 const { notFound, conflict } = require('../shared/errors');
 const { idParam } = require('../shared/schemas');
 const { registrarAuditoria } = require('../services/auditService');
@@ -40,7 +40,7 @@ function crear(tipo) {
   async function descargar(req, res) {
     const { id } = idParam.parse(req.params);
     const [[pago]] = await db.query(`SELECT persona_id, comprobante_url FROM ${tabla} WHERE id = ?`, [id]);
-    if (!pago || personaPermitida(req.user, pago.persona_id) !== pago.persona_id) throw notFound('Pago no encontrado.');
+    if (!pago || personaFinancieraPermitida(req.user, pago.persona_id) !== pago.persona_id) throw notFound('Pago no encontrado.');
     const nombre = archivos.nombreDesdeUrl(pago.comprobante_url);
     const ruta = archivos.rutaSegura(nombre);
     if (!ruta) throw notFound('Este pago no tiene comprobante bancario adjunto.');

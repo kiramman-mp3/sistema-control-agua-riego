@@ -3,16 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { COLORES_SECTOR, Turno, diaSemanaDe, indiceSector } from '../turno.model';
 import { TurnosCalendarioComponent } from './turnos-calendario.component';
 
-const turno = (id: number, dia: number, inicio: string, usuario: string, sector = 'La Merced') =>
+const turno = (id: number, dia: number, inicio: string, sector = 'La Merced') =>
   ({
     id,
-    persona_id: id,
-    lote_id: id,
+    sector_id: id,
     dia_semana: dia,
     dia: '',
-    usuario,
-    lote: `LJA-${id}`,
     sector,
+    representante: '',
     horaInicio: inicio,
     horaFin: '12:00',
   }) as Turno;
@@ -59,7 +57,7 @@ describe('TurnosCalendarioComponent', () => {
     ]);
     const lunes = c.columnas()[0];
     expect(lunes.total).toBe(3);
-    expect(lunes.grupos.map((g) => [g.hora, g.turnos.map((t) => t.usuario)])).toEqual([
+    expect(lunes.grupos.map((g) => [g.hora, g.turnos.map((t) => t.sector)])).toEqual([
       ['05:00', ['Ana Pérez', 'Rosa Quispe']],
       ['07:00', ['Zoila Vera']],
     ]);
@@ -77,10 +75,7 @@ describe('TurnosCalendarioComponent', () => {
   });
 
   it('pinta el borde de cada turno con el color de su sector y deja las acciones en la tarjeta', async () => {
-    const fixture = crear([
-      turno(1, 1, '05:00', 'Ana Pérez', 'La Merced'),
-      turno(2, 1, '05:00', 'Luis Mora', 'San Javier'),
-    ]);
+    const fixture = crear([turno(1, 1, '05:00', 'La Merced'), turno(2, 1, '05:00', 'San Javier')]);
     fixture.detectChanges();
     const tarjetas = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.shift'));
     expect(tarjetas[0].classList).toContain(`sector-${indiceSector('La Merced')}`);

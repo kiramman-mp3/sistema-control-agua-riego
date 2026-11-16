@@ -8,7 +8,7 @@ const { firmarToken, ALCANCE_CAMBIO_PASSWORD } = require('../middlewares/authMid
 const { compararPassword } = require('../shared/passwords');
 const { badRequest, conflict, forbidden, notFound, unauthorized } = require('../shared/errors');
 const { idParam } = require('../shared/schemas');
-const { ROLES } = require('../shared/roles');
+const { esAdmin, esTesorero, ROLES } = require('../shared/roles');
 
 /**
  * Verificación en dos pasos (TOTP) opcional para las cuentas de la directiva. Con ella activa, el inicio de
@@ -88,7 +88,7 @@ async function verificar(req, res) {
 
 /** Empieza la activación: genera un secreto nuevo (aún sin activar) y devuelve el código QR para escanearlo. */
 async function iniciar(req, res) {
-  if (req.user.rol !== ROLES.ADMIN) throw forbidden('La verificación en dos pasos está disponible para las cuentas de la directiva.');
+  if (!esAdmin(req.user)) throw forbidden('La verificación en dos pasos está disponible para las cuentas de la directiva.');
   const cuenta = await cuentaTotp(db, req.user.cuentaId);
   if (cuenta.totp_activo) throw conflict('La verificación en dos pasos ya está activa. Desactívela antes de configurarla de nuevo.');
   const secreto = totp.generarSecreto();
@@ -99,7 +99,7 @@ async function iniciar(req, res) {
 
 /** Confirma la activación con el primer código de la aplicación y entrega los códigos de recuperación (una sola vez). */
 async function activar(req, res) {
-  if (req.user.rol !== ROLES.ADMIN) throw forbidden('La verificación en dos pasos está disponible para las cuentas de la directiva.');
+  if (!esAdmin(req.user)) throw forbidden('La verificación en dos pasos está disponible para las cuentas de la directiva.');
   const { codigo } = codigoSchema.parse(req.body);
   const codigos = await withTransaction(async (conexion) => {
     const cuenta = await cuentaTotp(conexion, req.user.cuentaId, { bloquear: true });
@@ -142,8 +142,11 @@ async function desactivarDeOtro(req, res) {
   const { id } = idParam.parse(req.params);
   if (id === req.user.personaId) throw forbidden('Para desactivar la suya use Mi cuenta.');
   await withTransaction(async (conexion) => {
-    const [[cuenta]] = await conexion.query('SELECT id, totp_activo FROM cuentas WHERE persona_id = ? FOR UPDATE', [id]);
+    const [[cuenta]] = await conexion.query(
+      'SELECT c.id, c.totp_activo, r.codigo AS rol FROM cuentas c JOIN roles r ON r.id = c.rol_id WHERE c.persona_id = ? FOR UPDATE', [id]
+    );
     if (!cuenta) throw notFound('El usuario no tiene cuenta de acceso.');
+    if (cuenta.rol === ROLES.TESORERO && !esTesorero(req.user)) throw forbidden('Solo el tesorero puede modificar la cuenta del tesorero.');
     await conexion.query(
       'UPDATE cuentas SET totp_secreto = NULL, totp_activo = FALSE, totp_ultimo_paso = NULL, totp_recuperacion = NULL WHERE id = ?',
       [cuenta.id]

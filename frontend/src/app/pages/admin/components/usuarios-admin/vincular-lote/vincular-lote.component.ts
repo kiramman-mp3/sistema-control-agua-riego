@@ -22,7 +22,7 @@ export const PORCENTAJE_TITULARIDAD = 100;
 
 /**
  * Asigna un lote del catastro a un usuario. Un lote no se comparte: si ya tiene dueño,
- * asignarlo transfiere el 100 % de la propiedad (y sus turnos activos) al nuevo titular.
+ * asignarlo transfiere el 100 % de la propiedad al nuevo titular.
  */
 @Component({
   selector: 'app-vincular-lote',
@@ -135,8 +135,7 @@ export const PORCENTAJE_TITULARIDAD = 100;
               <i class="ri-swap-line" aria-hidden="true"></i>
               <span
                 >Este lote pertenece a <strong>{{ titular }}</strong>. Al asignarlo se le transfiere
-                el 100 % a {{ c.nombres }} {{ c.apellidos }}, junto con sus turnos de riego
-                activos.</span
+                el 100 % a {{ c.nombres }} {{ c.apellidos }}.</span
               >
             </div>
             @if (deuda(); as d) {

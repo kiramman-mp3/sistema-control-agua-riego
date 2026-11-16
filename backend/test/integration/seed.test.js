@@ -146,17 +146,38 @@ test('los turnos de un mismo sector no se solapan', async () => {
   const solapes = await uno(
     `SELECT COUNT(*) AS n FROM turnos_riego a
      JOIN turnos_riego b ON a.id < b.id AND a.dia_semana = b.dia_semana AND a.hora_inicio < b.hora_fin AND b.hora_inicio < a.hora_fin
-     JOIN lotes la ON la.id = a.lote_id JOIN lotes lb ON lb.id = b.lote_id AND la.sector_id = lb.sector_id`
+     AND a.sector_id = b.sector_id`
   );
   assert.equal(solapes.n, 0);
 });
 
+test('cada sector tiene un representante activo con lotes en él y sus turnos de agua', async () => {
+  const sectores = await uno(
+    `SELECT COUNT(*) AS total,
+            SUM(representante_persona_id IS NOT NULL) AS con_representante,
+            SUM(EXISTS (SELECT 1 FROM turnos_riego t WHERE t.sector_id = s.id AND t.estado = 'ACTIVO')) AS con_turnos
+     FROM sectores s WHERE s.activo = TRUE`
+  );
+  assert.ok(Number(sectores.total) > 0);
+  assert.equal(Number(sectores.con_representante), Number(sectores.total));
+  assert.equal(Number(sectores.con_turnos), Number(sectores.total));
+  const sinLotes = await uno(
+    `SELECT COUNT(*) AS n FROM sectores s JOIN personas p ON p.id = s.representante_persona_id
+     WHERE p.estado <> 'ACTIVO' OR NOT EXISTS (
+       SELECT 1 FROM lotes l JOIN persona_lotes pl ON pl.lote_id = l.id WHERE l.sector_id = s.id AND pl.persona_id = p.id)`
+  );
+  assert.equal(sinLotes.n, 0);
+});
+
 test('las credenciales sembradas permiten usar la API', async () => {
-  const login = await request(app).post('/api/auth/login').send({ cedula: resultado.admin.cedula, password: PASSWORD });
-  assert.equal(login.status, 200);
-  const token = login.body.token ?? login.body.data?.token;
-  const balance = await request(app).get('/api/financiero/balance').set('Authorization', `Bearer ${token}`);
-  assert.equal(balance.status, 200);
+  const entrar = async (cedula) => {
+    const login = await request(app).post('/api/auth/login').send({ cedula, password: PASSWORD });
+    assert.equal(login.status, 200);
+    return login.body.token ?? login.body.data?.token;
+  };
+  const balance = (token) => request(app).get('/api/financiero/balance').set('Authorization', `Bearer ${token}`);
+  assert.equal((await balance(await entrar(resultado.tesorero.cedula))).status, 200);
+  assert.equal((await balance(await entrar(resultado.admin.cedula))).status, 403, 'el presidente (ADMIN) no accede a las finanzas');
 
   const demo = await request(app).post('/api/auth/login').send({ cedula: resultado.demo.cedula, password: PASSWORD });
   assert.equal(demo.status, 200);

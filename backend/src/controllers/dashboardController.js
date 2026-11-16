@@ -1,9 +1,11 @@
 const db = require('../config/db');
 const { hoy, inicioDelDiaUtc } = require('../shared/dates');
+const { esTesorero } = require('../shared/roles');
 
 /**
  * Indicadores del panel de administración, calculados con datos reales.
- * Los montos del mes y del año usan el calendario de Ecuador.
+ * Los montos del mes y del año usan el calendario de Ecuador. Las finanzas y la cobranza solo se calculan y
+ * se entregan al tesorero; para el resto de la directiva llegan como null.
  */
 async function getResumen(req, res) {
   const fecha = hoy();
@@ -18,37 +20,42 @@ async function getResumen(req, res) {
             (SELECT COUNT(*) FROM cuentas WHERE estado = 'ACTIVA') AS cuentasActivas`
   );
 
-  const [[finanzas]] = await db.query(
-    `SELECT
-       (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
-         (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) AS recaudadoMes,
-       (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
-         (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) AS recaudadoAnio,
-       (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE' AND fecha >= ?) AS egresosMes,
-       (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE' AND fecha >= ?) AS egresosAnio,
-       (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE') +
-         (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE') -
-         (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE') AS saldoCaja,
-       (SELECT COALESCE(SUM(valor), 0) FROM obligaciones WHERE estado = 'PENDIENTE') +
-         (SELECT COALESCE(SUM(valor_total), 0) FROM obligacion_anual_agua WHERE estado = 'PENDIENTE') AS carteraPendiente,
-       (SELECT COALESCE(SUM(valor), 0) FROM obligaciones WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?) +
-         (SELECT COALESCE(SUM(valor_total), 0) FROM obligacion_anual_agua WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?) AS carteraVencida,
-       (SELECT COUNT(*) FROM (
-          SELECT persona_id FROM obligaciones WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?
-          UNION
-          SELECT persona_id FROM obligacion_anual_agua WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?
-        ) mora) AS usuariosEnMora`,
-    // fecha_pago está en UTC: el mes de Ecuador empieza a las 05:00 UTC del día 1.
-    [inicioDelDiaUtc(inicioMes), inicioDelDiaUtc(inicioMes), inicioDelDiaUtc(inicioAnio), inicioDelDiaUtc(inicioAnio),
-      inicioMes, inicioAnio, fecha, fecha, fecha, fecha]
-  );
+  const verFinanzas = esTesorero(req.user);
+  let finanzas = null;
+  let cobranza = null;
+  if (verFinanzas) {
+    [[finanzas]] = await db.query(
+      `SELECT
+         (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
+           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) AS recaudadoMes,
+         (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
+           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) AS recaudadoAnio,
+         (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE' AND fecha >= ?) AS egresosMes,
+         (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE' AND fecha >= ?) AS egresosAnio,
+         (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE') +
+           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE') -
+           (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE') AS saldoCaja,
+         (SELECT COALESCE(SUM(valor), 0) FROM obligaciones WHERE estado = 'PENDIENTE') +
+           (SELECT COALESCE(SUM(valor_total), 0) FROM obligacion_anual_agua WHERE estado = 'PENDIENTE') AS carteraPendiente,
+         (SELECT COALESCE(SUM(valor), 0) FROM obligaciones WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?) +
+           (SELECT COALESCE(SUM(valor_total), 0) FROM obligacion_anual_agua WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?) AS carteraVencida,
+         (SELECT COUNT(*) FROM (
+            SELECT persona_id FROM obligaciones WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?
+            UNION
+            SELECT persona_id FROM obligacion_anual_agua WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?
+          ) mora) AS usuariosEnMora`,
+      // fecha_pago está en UTC: el mes de Ecuador empieza a las 05:00 UTC del día 1.
+      [inicioDelDiaUtc(inicioMes), inicioDelDiaUtc(inicioMes), inicioDelDiaUtc(inicioAnio), inicioDelDiaUtc(inicioAnio),
+        inicioMes, inicioAnio, fecha, fecha, fecha, fecha]
+    );
 
-  // Eficiencia de cobro del pago anual de agua de este año.
-  const [[cobranza]] = await db.query(
-    `SELECT COALESCE(SUM(valor_total), 0) AS emitido, COALESCE(SUM(CASE WHEN estado = 'PAGADA' THEN valor_total END), 0) AS cobrado
-     FROM obligacion_anual_agua WHERE periodo_anio = ? AND estado <> 'ANULADA'`,
-    [Number(fecha.slice(0, 4))]
-  );
+    // Eficiencia de cobro del pago anual de agua de este año.
+    [[cobranza]] = await db.query(
+      `SELECT COALESCE(SUM(valor_total), 0) AS emitido, COALESCE(SUM(CASE WHEN estado = 'PAGADA' THEN valor_total END), 0) AS cobrado
+       FROM obligacion_anual_agua WHERE periodo_anio = ? AND estado <> 'ANULADA'`,
+      [Number(fecha.slice(0, 4))]
+    );
+  }
 
   const [ultimosEventos] = await db.query(
     `SELECT e.id, e.tipo, e.titulo, e.fecha,
@@ -78,8 +85,8 @@ async function getResumen(req, res) {
     data: {
       fecha,
       comunidad: { ...Object.fromEntries(Object.entries(comunidad).map(([k, v]) => [k, numero(v)])), eventosAnio: numero(eventosAnio) },
-      finanzas: Object.fromEntries(Object.entries(finanzas).map(([k, v]) => [k, numero(v)])),
-      cobranza: {
+      finanzas: finanzas && Object.fromEntries(Object.entries(finanzas).map(([k, v]) => [k, numero(v)])),
+      cobranza: cobranza && {
         emitido: numero(cobranza.emitido),
         cobrado: numero(cobranza.cobrado),
         porcentaje: numero(cobranza.emitido) ? numero(cobranza.cobrado) / numero(cobranza.emitido) : null
