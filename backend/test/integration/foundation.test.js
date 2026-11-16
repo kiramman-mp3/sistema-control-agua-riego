@@ -209,3 +209,29 @@ test('dos procesos que migran a la vez no aplican dos veces la misma migración'
   const [filas] = await db.query("SELECT id FROM schema_migrations WHERE id = '029_intentos_login.js'");
   assert.equal(filas.length, 1);
 });
+
+test('la migración de turnos por sector agrupa los turnos existentes por el sector de su lote y se puede repetir', async () => {
+  const { helpers } = require('../../src/db/migrator');
+  const migracion = require('../../database/migrations/039_turnos_por_sector');
+  const { crearSector, crearLote, crearPersona: persona } = require('../helpers/fixtures');
+  const sectorId = await crearSector('Sector migración turnos');
+  const { personaId } = await persona();
+  const loteId = await crearLote({ sectorId, personaId, codigo: 'MIG-T01' });
+  const [conLote] = await db.query(
+    "INSERT INTO turnos_riego (persona_id, lote_id, dia_semana, hora_inicio, hora_fin) VALUES (?, ?, 1, '06:00', '07:00')", [personaId, loteId]
+  );
+  const [sinLote] = await db.query(
+    "INSERT INTO turnos_riego (persona_id, dia_semana, hora_inicio, hora_fin) VALUES (?, 2, '06:00', '07:00')", [personaId]
+  );
+  const conexion = await db.getConnection();
+  try {
+    await migracion.up(conexion, helpers);
+    await migracion.up(conexion, helpers);
+  } finally {
+    conexion.release();
+  }
+  const [[agrupado]] = await db.query('SELECT sector_id, estado FROM turnos_riego WHERE id = ?', [conLote.insertId]);
+  assert.deepEqual(agrupado, { sector_id: sectorId, estado: 'ACTIVO' });
+  const [[huerfano]] = await db.query('SELECT sector_id, estado FROM turnos_riego WHERE id = ?', [sinLote.insertId]);
+  assert.deepEqual(huerfano, { sector_id: null, estado: 'INACTIVO' });
+});
