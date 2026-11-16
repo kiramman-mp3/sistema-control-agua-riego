@@ -161,7 +161,12 @@
   />
 }
 @if (detalle(); as l) {
-  <app-lote-detalle [lote]="l" (cerrar)="detalle.set(null)" (editar)="editarDesdeFicha($event)" />
+  <app-lote-detalle
+    [lote]="l"
+    (cerrar)="detalle.set(null)"
+    (editar)="editarDesdeFicha($event)"
+    (eliminado)="onLoteEliminado()"
+  />
 }
 @if (loteEnEdicion(); as e) {
   <app-lote-form

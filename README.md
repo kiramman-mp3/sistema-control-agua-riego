@@ -79,7 +79,7 @@ Las organizaciones comunitarias de riego suelen gestionar su padrón de socios, 
   - Express 5 con middleware modular
   - mysql2 con consultas preparadas y control transaccional
   - Zod para validación y saneamiento de esquemas de entrada
-  - JWT en cookie HttpOnly con protección CSRF, contraseñas con scrypt (`crypto` de Node) y verificación en dos pasos (TOTP) opcional para la directiva
+  - JWT en cookie HttpOnly con protección CSRF, contraseñas con scrypt (`crypto` de Node)
   - Helmet y express-rate-limit contra ataques comunes y fuerza bruta
   - PDFKit para generación de reportes y actas administrativas
   - Swagger UI / OpenAPI para documentación interactiva de la API
@@ -325,8 +325,7 @@ La lista completa para un VPS (DNS, usuario de MySQL, SSH, HTTPS, primer ingreso
 
 | Método | Ruta | Rol requerido | Descripción |
 |---|---|---|---|
-| `POST` | `/api/auth/login` | Público | Autenticación con cédula y contraseña; deja la sesión en una cookie HttpOnly (y devuelve el JWT para clientes de la API) o pide el código de verificación en dos pasos |
-| `POST` | `/api/auth/totp/verificar` | Token intermedio | Segundo paso del inicio de sesión con el código de la aplicación de autenticación |
+| `POST` | `/api/auth/login` | Público | Autenticación con cédula y contraseña; deja la sesión en una cookie HttpOnly (y devuelve el JWT para clientes de la API) |
 | `GET` | `/api/auth/perfil` | Autenticado | Obtiene los datos del usuario en sesión actual |
 | `GET` | `/api/usuarios` | ADMIN | Lista paginada del padrón con filtros de búsqueda |
 | `POST` | `/api/usuarios` | ADMIN | Registra un nuevo socio y genera cuenta de acceso |
@@ -351,7 +350,6 @@ La lista completa para un VPS (DNS, usuario de MySQL, SSH, HTTPS, primer ingreso
 | **Facturación Anual** | El agua se cobra una vez al año **por hectárea**: cada lote de un socio activo paga el valor por hectárea (tarifa `AGUA_ANUAL`) por sus hectáreas (m² ÷ 10.000), redondeado al centavo. La superficie es obligatoria; si algún lote por emitir no la tiene, no se emite nada y se lista cuáles son para completarlos. Corregir la superficie recalcula la cuota pendiente. La deuda sigue al lote: al transferirlo, las cuotas pendientes pasan al nuevo titular. Las multas por inasistencia siguen siendo por persona. |
 | **Protección contra Fuerza Bruta** | Tras 5 intentos fallidos en 15 minutos, el inicio de sesión de esa cuenta queda bloqueado 15 minutos **desde esa IP** (tabla `intentos_login`); el dueño legítimo puede entrar desde otra red. Si una cuenta recibe fallos desde 5 o más redes en una hora, las respuestas fallidas se retrasan y queda una alerta (`ALERTA`) en la auditoría. La directiva ve las cuentas bloqueadas en el padrón de usuarios y puede desbloquearlas sin cambiar la contraseña. |
 | **Sesión en cookie HttpOnly** | El token de sesión no se guarda en el navegador: va en la cookie `junta_sesion` (HttpOnly, SameSite=Strict, Secure con HTTPS). Las peticiones que modifican datos llevan `X-CSRF-Token` con el valor de la cookie `junta_csrf` (ver ADR 0002). |
-| **Verificación en dos pasos** | Opcional para la directiva desde Mi cuenta: código de 6 dígitos de una aplicación de autenticación (Google Authenticator, Microsoft Authenticator, Authy) y 8 códigos de recuperación de un solo uso. Otro administrador puede quitarla si se pierde el teléfono. |
 | **Cierre de Sesión** | Cerrar sesión invalida todas las sesiones de la cuenta en todos los dispositivos; la interfaz lo avisa. |
 | **Contraseñas** | Mínimo 10 caracteres con letras y números, sin incluir la cédula y sin ser una contraseña común (`password123`, `Junta2026`…). Se valida en el servidor y en el formulario. |
 | **Edad Mínima** | Una persona registrada debe tener al menos 18 años (fecha de nacimiento opcional, validada en el servidor y en el formulario). |

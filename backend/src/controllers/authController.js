@@ -5,7 +5,7 @@ const db = require('../config/db');
 const env = require('../config/env');
 const { registrarAuditoria } = require('../services/auditService');
 const { withTransaction } = require('../shared/transaction');
-const { firmarToken, ALCANCE_CAMBIO_PASSWORD, ALCANCE_VERIFICAR_TOTP } = require('../middlewares/authMiddleware');
+const { firmarToken, ALCANCE_CAMBIO_PASSWORD } = require('../middlewares/authMiddleware');
 const { compararPassword, hashPassword, necesitaRehash, problemaConPassword, HASH_FICTICIO } = require('../shared/passwords');
 const { badRequest, unauthorized, notFound } = require('../shared/errors');
 
@@ -51,7 +51,7 @@ function usuarioPublico(fila) {
 /** Cuenta de la persona con esa cédula. No hay alias: cada cuenta se identifica solo por su cédula. */
 async function buscarCuentaPorCedula(cedula) {
   const [rows] = await db.query(
-    `SELECT c.id AS cuenta_id, c.password_hash, c.estado AS estado_cuenta, c.debe_cambiar_password, c.totp_activo,
+    `SELECT c.id AS cuenta_id, c.password_hash, c.estado AS estado_cuenta, c.debe_cambiar_password,
             p.id AS persona_id, p.cedula, p.nombres, p.apellidos, p.email, p.estado AS estado_persona,
             r.codigo AS rol_codigo, r.nombre AS rol_nombre
      FROM personas p
@@ -179,15 +179,6 @@ async function login(req, res) {
 
   const user = usuarioPublico(cuenta);
 
-  // Con verificación en dos pasos, la contraseña correcta solo da un token intermedio para enviar el código.
-  if (cuenta.totp_activo) {
-    return res.json({
-      status: 'OK', message: 'Ingrese el código de su aplicación de autenticación.', requiereTotp: true, recordar,
-      token: firmarToken(user, { alcance: ALCANCE_VERIFICAR_TOTP }),
-      user: { nombres: user.nombres, apellidos: user.apellidos, rol: user.rol }
-    });
-  }
-
   const token = firmarToken(user, user.debeCambiarPassword ? { alcance: ALCANCE_CAMBIO_PASSWORD } : undefined);
 
   await registrarAuditoria({
@@ -258,7 +249,7 @@ async function logout(req, res) {
 /** Perfil de la cuenta autenticada. */
 async function getMe(req, res) {
   const [rows] = await db.query(
-    `SELECT c.id AS cuenta_id, c.debe_cambiar_password, c.ultimo_acceso, c.totp_activo,
+    `SELECT c.id AS cuenta_id, c.debe_cambiar_password, c.ultimo_acceso,
             p.id AS persona_id, p.cedula, p.nombres, p.apellidos, p.email, p.telefono, p.celular, p.direccion,
             r.codigo AS rol_codigo, r.nombre AS rol_nombre
      FROM cuentas c
@@ -272,8 +263,7 @@ async function getMe(req, res) {
   return res.json({
     status: 'OK',
     user: {
-      ...usuarioPublico(fila), telefono: fila.telefono, celular: fila.celular, direccion: fila.direccion, ultimoAcceso: fila.ultimo_acceso,
-      totpActivo: Boolean(fila.totp_activo)
+      ...usuarioPublico(fila), telefono: fila.telefono, celular: fila.celular, direccion: fila.direccion, ultimoAcceso: fila.ultimo_acceso
     }
   });
 }

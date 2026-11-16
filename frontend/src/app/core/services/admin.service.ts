@@ -144,6 +144,10 @@ export class AdminService {
     return this.http.put<RespuestaMensaje>(`${this.baseUrl}/lotes/${id}`, data);
   }
 
+  deleteLote(id: number): Observable<RespuestaMensaje> {
+    return this.http.delete<RespuestaMensaje>(`${this.baseUrl}/lotes/${id}`);
+  }
+
   sugerirCodigoLote(sectorId: number): Observable<RespuestaApi<{ codigo: string }>> {
     return this.http.get<RespuestaApi<{ codigo: string }>>(`${this.baseUrl}/lotes/sugerir-codigo`, {
       params: { sector_id: sectorId },

@@ -8,7 +8,7 @@ Inventario de las funcionalidades del Sistema Integrado de Gestión de la Junta 
 |---|---|---|
 | Visitante | Cualquier persona sin iniciar sesión | Ver el portal público: inicio, cronograma de turnos, comunicaciones (asambleas y mingas), noticias y aviso de privacidad |
 | Usuario (`USUARIO`) | Socio o socia de la Junta con cuenta | Lo del visitante, más "Mi cuenta" (deudas, pagos, comprobantes) y "Mis lotes" (ubicación y turnos); ver actas firmadas |
-| Administrador (`ADMIN`) | Integrante de la directiva | Todo lo anterior, más el panel de Gestión completo y la verificación en dos pasos de su cuenta |
+| Administrador (`ADMIN`) | Integrante de la directiva | Todo lo anterior, más el panel de Gestión completo |
 
 ## Estado de las funcionalidades
 
@@ -25,8 +25,6 @@ Inventario de las funcionalidades del Sistema Integrado de Gestión de la Junta 
 | Cambiar contraseña temporal | Todos con cuenta | `/login` (automático en el primer ingreso) | Contraseña temporal, nueva (2 veces) | Mínimo 10 caracteres, letras y números, sin la cédula, no común | Operativa |
 | Recuperar contraseña | Todos | `/login` → "¿Olvidó su contraseña?" | — | Indica acudir a la secretaría; la directiva genera una temporal | Operativa (presencial) |
 | Cerrar sesión | Todos con cuenta | Botón "Cerrar Sesión" | — | Cierra la sesión en todos los dispositivos | Operativa |
-| Verificación en dos pasos | ADMIN | `/mi-cuenta` → "Verificación en dos pasos" | Aplicación de autenticación, código de 6 dígitos | Activar con QR, 8 códigos de recuperación, código pedido al ingresar, desactivar con contraseña | Operativa |
-| Quitar la verificación de otra cuenta | ADMIN | — | — | `POST /api/personas/:id/cuenta/totp/desactivar` | Solo API |
 
 ## 2. Portal público
 
@@ -70,7 +68,8 @@ Inventario de las funcionalidades del Sistema Integrado de Gestión de la Junta 
 | Restablecer contraseña | Padrón → editar | Nueva temporal; cierra las sesiones del usuario | Operativa |
 | Ver y desbloquear cuentas bloqueadas por intentos | Padrón (aviso superior) | — | Operativa |
 | Asignar o transferir terreno | Padrón → lotes del usuario → "Asignar otro terreno" | Un titular por lote; las cuotas de agua pendientes y los turnos pasan al nuevo titular | Operativa |
-| Eliminar usuario sin historial | — | `DELETE /api/personas/:id` | Solo API |
+| Eliminar usuario sin historial | Padrón → ícono de papelera | Pide confirmación; con lotes, pagos u otro historial se rechaza y se debe inactivar | Operativa |
+| Eliminar lote sin cuotas de agua | Catastro o lotes del usuario → Ver ficha → "Eliminar lote" | Pide confirmación; con cuotas anuales de agua se rechaza | Operativa |
 | Catastro: listar, buscar, filtrar por sector | Catastro de lotes | — | Operativa |
 | Registrar o editar lote | Catastro → "Nuevo lote" / editar | Sector, código `AAA-000` (con "Sugerir"), superficie en m² obligatoria, ubicación en el mapa, referencia | Operativa |
 | Ver ficha del lote | Catastro → "Ver ficha" | — | Operativa |

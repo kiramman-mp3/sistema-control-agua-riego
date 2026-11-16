@@ -44,6 +44,11 @@ router.delete('/sectores/:id', ...soloAdmin, loteController.deleteSector);
  *     tags: [Lotes y Sectores]
  *     summary: Registrar lote y, opcionalmente, su titular
  *     security: [{ bearerAuth: [] }]
+ * /lotes/{id}:
+ *   delete:
+ *     tags: [Lotes y Sectores]
+ *     summary: Eliminar un lote registrado por error (solo sin cuotas anuales de agua)
+ *     security: [{ bearerAuth: [] }]
  * /lotes/{loteId}/vincular-persona:
  *   post:
  *     tags: [Lotes y Sectores]
@@ -60,6 +65,7 @@ router.get('/sugerir-codigo', ...soloAdmin, loteController.sugerirCodigo);
 router.get('/', verificarToken, loteController.getLotes);
 router.post('/', ...soloAdmin, loteController.createLote);
 router.put('/:id', ...soloAdmin, loteController.updateLote);
+router.delete('/:id', ...soloAdmin, loteController.deleteLote);
 router.get('/:loteId/deuda-agua', ...soloAdmin, loteController.getDeudaAguaLote);
 router.post('/:loteId/vincular-persona', ...soloAdmin, loteController.linkPersonaLote);
 

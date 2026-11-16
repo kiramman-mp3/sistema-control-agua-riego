@@ -11,6 +11,7 @@ import { VincularLoteComponent } from './vincular-lote/vincular-lote.component';
 import { SectorFormComponent } from './sector-form/sector-form.component';
 import { PadronUsuariosComponent } from './padron/padron-usuarios.component';
 import { CatastroLotesComponent } from './catastro/catastro-lotes.component';
+import { LoteDetalleComponent } from './lote-detalle/lote-detalle.component';
 
 let admin: any;
 const notifyStub = { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() };
@@ -509,5 +510,111 @@ describe('Paginación del catastro (CatastroLotesComponent)', () => {
     expect(admin.getLotesPaginados).toHaveBeenLastCalledWith(1, 10, 4, '');
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Mostrando 1–10 de 80 lotes');
+  });
+});
+
+describe('Eliminar un lote (LoteDetalleComponent)', () => {
+  const lote = {
+    id: 7,
+    sector_id: 2,
+    sector_nombre: 'La Merced',
+    codigo: 'LJB-007',
+    superficie_m2: 1500,
+  };
+  const crear = () => {
+    const fixture = TestBed.createComponent(LoteDetalleComponent);
+    fixture.componentRef.setInput('lote', lote);
+    return fixture.componentInstance;
+  };
+
+  beforeEach(() => {
+    notifyStub.success.mockClear();
+    notifyStub.error.mockClear();
+    dialogStub.confirmar.mockReset();
+  });
+
+  it('con la confirmación borra el lote y avisa al padre', async () => {
+    dialogStub.confirmar.mockResolvedValue(true);
+    configurar({
+      deleteLote: vi.fn(() => of({ status: 'OK', message: 'Lote eliminado exitosamente.' })),
+    });
+    const component = crear();
+    const eliminado = vi.fn();
+    component.eliminado.subscribe(eliminado);
+    await component.eliminar();
+    expect(admin.deleteLote).toHaveBeenCalledWith(7);
+    expect(eliminado).toHaveBeenCalled();
+    expect(notifyStub.success).toHaveBeenCalledWith('Lote eliminado exitosamente.');
+  });
+
+  it('si se cancela no llama al servidor', async () => {
+    dialogStub.confirmar.mockResolvedValue(false);
+    configurar({ deleteLote: vi.fn() });
+    await crear().eliminar();
+    expect(admin.deleteLote).not.toHaveBeenCalled();
+  });
+
+  it('si el servidor lo rechaza muestra el motivo y no cierra la ficha', async () => {
+    dialogStub.confirmar.mockResolvedValue(true);
+    configurar({
+      deleteLote: vi.fn(() =>
+        throwError(() => ({ error: { message: 'Tiene 1 cuota anual de agua.' } })),
+      ),
+    });
+    const component = crear();
+    const eliminado = vi.fn();
+    component.eliminado.subscribe(eliminado);
+    await component.eliminar();
+    expect(notifyStub.error).toHaveBeenCalledWith('Tiene 1 cuota anual de agua.');
+    expect(eliminado).not.toHaveBeenCalled();
+  });
+});
+
+describe('Eliminar un usuario registrado por error (PadronUsuariosComponent)', () => {
+  const usuario = { id: 4, nombres: 'Luis', apellidos: 'Aldaz' } as any;
+  const crear = (extra: any) => {
+    configurar({
+      getPersonas: vi.fn(() => of({ data: [], pagination: { total: 0, page: 1, limit: 25 } })),
+      ...extra,
+    });
+    const fixture = TestBed.createComponent(PadronUsuariosComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  };
+
+  beforeEach(() => {
+    notifyStub.success.mockClear();
+    notifyStub.error.mockClear();
+    dialogStub.confirmar.mockReset();
+  });
+
+  it('con la confirmación borra al usuario y recarga el padrón', async () => {
+    dialogStub.confirmar.mockResolvedValue(true);
+    const component = crear({
+      deletePersona: vi.fn(() => of({ status: 'OK', message: 'Usuario eliminado.' })),
+    });
+    await component.eliminarUsuario(usuario);
+    expect(admin.deletePersona).toHaveBeenCalledWith(4);
+    expect(admin.getPersonas).toHaveBeenCalledTimes(2);
+    expect(notifyStub.success).toHaveBeenCalledWith('Usuario eliminado.');
+  });
+
+  it('si se cancela no llama al servidor', async () => {
+    dialogStub.confirmar.mockResolvedValue(false);
+    const component = crear({ deletePersona: vi.fn() });
+    await component.eliminarUsuario(usuario);
+    expect(admin.deletePersona).not.toHaveBeenCalled();
+  });
+
+  it('si tiene historial muestra el motivo del servidor y no recarga', async () => {
+    dialogStub.confirmar.mockResolvedValue(true);
+    const component = crear({
+      deletePersona: vi.fn(() =>
+        throwError(() => ({ error: { message: 'Registra historial activo.' } })),
+      ),
+    });
+    await component.eliminarUsuario(usuario);
+    expect(notifyStub.error).toHaveBeenCalledWith('Registra historial activo.');
+    expect(admin.getPersonas).toHaveBeenCalledTimes(1);
   });
 });

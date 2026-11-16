@@ -38,7 +38,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (
         error?.status === 401 &&
         !req.url.endsWith('/auth/login') &&
-        !req.url.endsWith('/auth/totp/verificar') &&
         !req.url.endsWith('/auth/logout')
       ) {
         session.limpiar();

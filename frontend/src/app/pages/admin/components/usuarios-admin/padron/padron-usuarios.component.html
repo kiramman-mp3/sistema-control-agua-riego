@@ -228,6 +228,15 @@
                   >
                     <i class="ri-map-pin-add-line" aria-hidden="true"></i>
                   </button>
+                  <button
+                    type="button"
+                    class="icon-btn icon-btn--danger"
+                    (click)="eliminarUsuario(u)"
+                    title="Eliminar usuario registrado por error"
+                    [attr.aria-label]="'Eliminar a ' + u.nombres"
+                  >
+                    <i class="ri-delete-bin-line" aria-hidden="true"></i>
+                  </button>
                 </td>
               </tr>
             }
@@ -267,7 +276,12 @@
   />
 }
 @if (loteDetalle(); as l) {
-  <app-lote-detalle [lote]="l" (cerrar)="loteDetalle.set(null)" (editar)="editarLote($event)" />
+  <app-lote-detalle
+    [lote]="l"
+    (cerrar)="loteDetalle.set(null)"
+    (editar)="editarLote($event)"
+    (eliminado)="onLoteEliminado()"
+  />
 }
 @if (loteEnEdicion(); as e) {
   <app-lote-form

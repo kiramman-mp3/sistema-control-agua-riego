@@ -8,8 +8,6 @@ El plan para darles pantalla está en [`auditoria/PLAN_PANTALLAS_SOLO_API.md`](a
 
 | Función | Endpoint | Efecto para la directiva |
 |---|---|---|
-| Quitar la verificación en dos pasos de otra cuenta (teléfono perdido) | `POST /api/personas/:id/cuenta/totp/desactivar` | Hoy solo la puede hacer quien tenga acceso técnico; también se resuelve con `npm run db:reset-admin` en el servidor |
-| Eliminar un usuario registrado por error (sin historial) | `DELETE /api/personas/:id` | En pantalla solo se puede inactivar |
 | Crear y editar sectores | `/api/lotes/sectores` | Los sectores vienen cargados; uno nuevo requiere ayuda técnica |
 | Anular un egreso | `POST /api/financiero/egresos/:id/anular` | Un egreso registrado por error no se puede anular desde la pantalla |
 | Anular una obligación (exoneración) o crear una obligación manual | `/api/financiero/obligaciones`, `/api/financiero/agua-anual/obligaciones/:id/anular` | Las exoneraciones aprobadas en asamblea no tienen pantalla |
@@ -29,8 +27,6 @@ La guía no documenta estas funciones como disponibles.
 ## 3. Limitaciones conocidas
 
 - La recuperación de contraseña es presencial: la directiva genera una contraseña temporal; no hay recuperación por correo.
-- La verificación en dos pasos es opcional y solo para administradores.
-- Si el servidor cambia su clave interna (`JWT_SECRET`), los administradores deben volver a activar la verificación en dos pasos.
 - La convocatoria por WhatsApp necesita el servicio de WhatsApp instalado y el teléfono de la Junta vinculado; usa WhatsApp Web, que no es un servicio oficial, y el número podría ser bloqueado (ADR 0001).
 - Los mapas usan los mosaicos de OpenStreetMap: necesitan conexión a internet.
 - Al actualizar a `v1.3.0` cada persona debe volver a iniciar sesión una vez (la sesión pasó a una cookie segura).
