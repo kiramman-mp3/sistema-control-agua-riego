@@ -170,6 +170,8 @@ test.describe('pago anual de agua', () => {
     await expect(page.locator('.summary__total')).not.toHaveText('$0.00');
     await page.getByRole('radio', { name: 'Depósito' }).click();
     await page.getByLabel('Número de referencia').fill(REFERENCIA_ANUAL);
+    // El pago anual de agua exige el comprobante bancario antes de registrarse.
+    await page.locator('#cobro-comprobante').setInputFiles(fixture('imagen.png'));
     await page.getByRole('button', { name: 'Registrar pago' }).click();
     await dialogo(page).getByRole('button', { name: 'Registrar pago' }).click();
     await expect(page.locator('strong', { hasText: /Pago .+ registrado/ })).toBeVisible();
