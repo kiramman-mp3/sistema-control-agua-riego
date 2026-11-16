@@ -127,6 +127,11 @@ export class CatastroLotesComponent implements OnInit {
     this.loteEnEdicion.set(lote);
   }
 
+  onLoteEliminado(): void {
+    this.detalle.set(null);
+    this.cargar();
+  }
+
   onActualizado(): void {
     this.loteEnEdicion.set(null);
     this.cargar();
