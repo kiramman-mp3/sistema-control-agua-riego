@@ -58,10 +58,23 @@ export class LotesMapComponent implements AfterViewInit, OnDestroy {
       tieneUbicacion ? [lat, lng] : CENTRO_PATATE,
       tieneUbicacion ? 16 : 14,
     );
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const calles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors',
-    }).addTo(this.map);
+    });
+    // Esri no tiene imágenes de máxima resolución en todo el campo: pasado el zoom 18 se amplía el último mosaico.
+    const satelite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxNativeZoom: 18,
+        maxZoom: 19,
+        attribution: 'Imágenes © Esri, Maxar, Earthstar Geographics',
+      },
+    );
+    calles.addTo(this.map);
+    L.control
+      .layers({ Mapa: calles, Satélite: satelite }, undefined, { collapsed: false })
+      .addTo(this.map);
 
     if (tieneUbicacion) {
       this.colocarMarcador(L.latLng(lat, lng));
