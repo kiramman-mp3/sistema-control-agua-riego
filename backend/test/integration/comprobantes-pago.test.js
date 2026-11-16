@@ -100,7 +100,8 @@ test('el pago anual de agua admite comprobante bancario: solo admin sube, admin 
   const [{ insertId }] = await db.query("INSERT INTO obligacion_anual_agua (persona_id, periodo_anio, valor_total, fecha_emision, fecha_vencimiento) VALUES (?, ?, 12, CURDATE(), CURDATE())", [titular.personaId, anio]);
   const ob = { id: insertId };
   const pago = await request(app).post('/api/financiero/agua-anual/pagos').set(auth(admin))
-    .send({ persona_id: titular.personaId, obligacionesIds: [ob.id], metodo: 'TRANSFERENCIA', referencia: 'TRF-9' });
+    .field('persona_id', String(titular.personaId)).field('obligacionesIds', JSON.stringify([ob.id])).field('metodo', 'TRANSFERENCIA').field('referencia', 'TRF-9')
+    .attach('archivo', pdf, 'banco.pdf');
   assert.equal(pago.status, 201, JSON.stringify(pago.body));
   const url = `/api/financiero/agua-anual/pagos/${pago.body.pagoId}/comprobante`;
   assert.equal((await request(app).post(url).set(auth(titular)).attach('archivo', pdf, 'banco.pdf')).status, 403);

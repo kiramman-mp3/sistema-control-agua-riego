@@ -10,6 +10,7 @@ const consultas = require('../services/finanzasConsultas');
 const { personaPermitida } = require('../shared/roles');
 const { badRequest, notFound } = require('../shared/errors');
 const { hoy } = require('../shared/dates');
+const archivos = require('../services/documentStorage');
 const s = require('../shared/schemas');
 const {
   obligacionesQuery, porCedulaQuery, tarifaSchema, obligacionSchema, pagoSchema, motivoSchema, rangoFechas,
@@ -219,13 +220,34 @@ async function anularObligacionAnualAgua(req, res) {
   return res.json({ status: 'OK', message: 'Obligación anual anulada correctamente.' });
 }
 
-/** Registrar el pago de obligaciones anuales de agua pendientes. */
+/** En multipart la lista de obligaciones viaja como texto JSON. */
+function cuerpoDePagoAnual(body) {
+  if (typeof body?.obligacionesIds !== 'string') return body;
+  try {
+    return { ...body, obligacionesIds: JSON.parse(body.obligacionesIds) };
+  } catch {
+    return body;
+  }
+}
+
+/**
+ * Registrar el pago de obligaciones anuales de agua pendientes.
+ * El comprobante bancario es obligatorio y llega en la misma petición: si el pago falla, el archivo se borra.
+ */
 async function registrarPagoAnualAgua(req, res) {
-  const datos = pagoSchema.parse(req.body);
-  const resultado = await conAuditoria(req, (conexion) => finanzas.registrarPagoAnualAgua(conexion, datosDePago(req, datos)), (r) => ({
-    accion: 'PAGO', entidad: 'pago_anual_agua', entidadId: r.pagoId,
-    detalle: { persona_id: datos.persona_id, valorTotal: r.valorTotal, obligacionesIds: datos.obligacionesIds, metodo: datos.metodo }
-  }));
+  const datos = pagoSchema.parse(cuerpoDePagoAnual(req.body));
+  if (!req.file) throw badRequest('Adjunte el comprobante bancario antes de registrar el pago.');
+  const comprobante = await archivos.guardarDocumento(req.file.buffer, 'pago_comprobante');
+  let resultado;
+  try {
+    resultado = await conAuditoria(req, (conexion) => finanzas.registrarPagoAnualAgua(conexion, { ...datosDePago(req, datos), comprobanteUrl: comprobante.url }), (r) => ({
+      accion: 'PAGO', entidad: 'pago_anual_agua', entidadId: r.pagoId,
+      detalle: { persona_id: datos.persona_id, valorTotal: r.valorTotal, obligacionesIds: datos.obligacionesIds, metodo: datos.metodo, comprobanteBancario: true }
+    }));
+  } catch (error) {
+    await archivos.eliminarDocumento(comprobante.url);
+    throw error;
+  }
   return res.status(201).json({ status: 'OK', message: 'Pago anual de agua registrado exitosamente.', ...resultado });
 }
 
