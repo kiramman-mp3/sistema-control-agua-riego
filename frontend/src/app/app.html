@@ -16,14 +16,10 @@
       </li>
       <li><a routerLink="/eventos" routerLinkActive="active">Comunicaciones</a></li>
       @if (authService.isLoggedIn()) {
-        <li>
-          @if (authService.esAdmin()) {
-            <a routerLink="/admin" routerLinkActive="active">Gestión</a>
-          }
-          @if (authService.getUser()?.rol === 'USUARIO') {
-            <a routerLink="/mi-cuenta" routerLinkActive="active">Mi cuenta</a>
-          }
-        </li>
+        @if (authService.esAdmin()) {
+          <li><a routerLink="/admin" routerLinkActive="active">Gestión</a></li>
+        }
+        <li><a routerLink="/mi-cuenta" routerLinkActive="active">Mi cuenta</a></li>
       }
     </ul>
 
@@ -93,7 +89,7 @@
             <a routerLink="/admin" routerLinkActive="active" (click)="cerrarMenu()">Gestión</a>
           </li>
         }
-        @if (authService.isLoggedIn() && authService.getUser()?.rol === 'USUARIO') {
+        @if (authService.isLoggedIn()) {
           <li>
             <a routerLink="/mi-cuenta" routerLinkActive="active" (click)="cerrarMenu()"
               >Mi cuenta</a
