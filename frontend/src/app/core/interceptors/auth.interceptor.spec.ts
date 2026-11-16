@@ -69,10 +69,10 @@ describe('authInterceptor', () => {
     expect(navegar).toHaveBeenCalledWith(['/login'], expect.anything());
   });
 
-  it('un 401 del login o del código de verificación no cierra la sesión ni redirige', () => {
+  it('un 401 del login no cierra la sesión ni redirige', () => {
     session.guardar(jwt(), { rol: 'USUARIO' });
     const navegar = vi.spyOn(TestBed.inject(Router), 'navigate');
-    for (const ruta of ['/auth/login', '/auth/totp/verificar']) {
+    for (const ruta of ['/auth/login']) {
       http.post(`${environment.apiUrl}${ruta}`, {}).subscribe({ error: () => {} });
       backend
         .expectOne(`${environment.apiUrl}${ruta}`)

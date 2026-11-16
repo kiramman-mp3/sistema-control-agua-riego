@@ -16,7 +16,6 @@ import {
   CUENTA_BANCARIA_JUNTA,
   SEDE_JUNTA,
 } from '../inicio/informacion-junta.data';
-import { VerificacionDosPasosComponent } from '../../shared/verificacion-dos-pasos/verificacion-dos-pasos.component';
 
 interface UsuarioResultado {
   cedula: string;
@@ -31,14 +30,7 @@ interface UsuarioResultado {
 @Component({
   selector: 'app-mi-cuenta',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink,
-    FechaLocalPipe,
-    CurvasNivelComponent,
-    PaginadorComponent,
-    VerificacionDosPasosComponent,
-  ],
+  imports: [CommonModule, RouterLink, FechaLocalPipe, CurvasNivelComponent, PaginadorComponent],
   templateUrl: './mi-cuenta.component.html',
   styleUrls: ['./mi-cuenta.component.scss'],
 })
@@ -50,8 +42,6 @@ export class MiCuentaComponent implements OnInit {
   readonly atencion = ATENCION_JUNTA;
 
   cargando = true;
-  /** La directiva puede activar la verificación en dos pasos de su cuenta. */
-  esAdmin = false;
   resultado: UsuarioResultado | null = null;
   errorMensaje = '';
 
@@ -80,7 +70,6 @@ export class MiCuentaComponent implements OnInit {
       return;
     }
 
-    this.esAdmin = this.authService.esAdmin();
     this.consultarDatos(user.cedula);
     this.cargarPagos();
   }
