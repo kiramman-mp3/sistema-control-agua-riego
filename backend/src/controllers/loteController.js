@@ -319,6 +319,31 @@ async function updateLote(req, res) {
 }
 
 /**
+ * Eliminación física de un lote registrado por error. Solo se permite si no tiene cuotas anuales de agua (pagadas
+ * o pendientes): borrarlo arrastraría ese historial financiero. Con cuotas, el lote se corrige con la edición.
+ * Al borrarlo se pierde también su vínculo con el titular, que queda registrado en la auditoría.
+ */
+async function deleteLote(req, res) {
+  const { id } = s.idParam.parse(req.params);
+  await withTransaction(async (conexion) => {
+    const [lotes] = await conexion.query('SELECT id, codigo, sector_id FROM lotes WHERE id = ? FOR UPDATE', [id]);
+    if (!lotes.length) throw notFound('El lote no existe.');
+    const lote = lotes[0];
+    const [[{ cuotas }]] = await conexion.query('SELECT COUNT(*) AS cuotas FROM obligacion_anual_agua WHERE lote_id = ?', [id]);
+    if (Number(cuotas) > 0) {
+      throw conflict(`No se puede eliminar el lote ${lote.codigo} porque tiene ${cuotas} cuota(s) anual(es) de agua registradas. Corrija sus datos con Editar lote.`);
+    }
+    const [titulares] = await conexion.query('SELECT persona_id FROM persona_lotes WHERE lote_id = ?', [id]);
+    await conexion.query('DELETE FROM lotes WHERE id = ?', [id]);
+    await registrarAuditoria({
+      conexion, cuentaId: req.user.cuentaId, accion: 'ELIMINAR', entidad: 'lotes', entidadId: id, ip: req.ip,
+      detalle: { codigo: lote.codigo, sector_id: lote.sector_id, persona_id: titulares[0]?.persona_id ?? null }
+    });
+  });
+  return res.json({ status: 'OK', message: 'Lote eliminado exitosamente.' });
+}
+
+/**
  * Asignar o transferir la titularidad de un lote (un lote tiene un solo titular).
  * La transferencia queda en la auditoría con el titular anterior y la fecha desde la que tenía el lote.
  */
@@ -393,6 +418,7 @@ module.exports = {
   getLotes,
   createLote,
   updateLote,
+  deleteLote,
   linkPersonaLote,
   getDeudaAguaLote
 };
