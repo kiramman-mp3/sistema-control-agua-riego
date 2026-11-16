@@ -1,8 +1,11 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { ModalComponent } from '../../../../../shared/ui/modal.component';
 import { LotesMapComponent } from '../../lotes-map/lotes-map.component';
 import { LoteItem } from '../../../../../core/models/api-payloads';
 import { textoSuperficie } from '../../../../../core/utils/superficie';
+import { AdminService } from '../../../../../core/services/admin.service';
+import { DialogService } from '../../../../../core/services/dialog.service';
+import { NotificationService } from '../../../../../core/services/notification.service';
 
 /** Ficha de un lote: datos del catastro, propietarios vinculados y georreferenciación. */
 @Component({
@@ -100,6 +103,9 @@ import { textoSuperficie } from '../../../../../core/utils/superficie';
         <button type="button" class="btn btn--outline" (click)="editar.emit(l)">
           <i class="ri-edit-line" aria-hidden="true"></i> Editar lote
         </button>
+        <button type="button" class="btn btn--danger" (click)="eliminar()">
+          <i class="ri-delete-bin-line" aria-hidden="true"></i> Eliminar lote
+        </button>
         <button type="button" class="btn btn--primary" (click)="cerrar.emit()">Cerrar</button>
       </div>
     </app-modal>
@@ -110,6 +116,11 @@ export class LoteDetalleComponent {
   readonly lote = input.required<LoteItem>();
   readonly cerrar = output<void>();
   readonly editar = output<LoteItem>();
+  readonly eliminado = output<void>();
+
+  private admin = inject(AdminService);
+  private dialog = inject(DialogService);
+  private notify = inject(NotificationService);
 
   readonly propietarios = computed<string[]>(() =>
     this.lote().propietarios ? String(this.lote().propietarios).split(', ') : [],
@@ -120,5 +131,24 @@ export class LoteDetalleComponent {
 
   abrirGoogleMaps(): void {
     window.open(`https://www.google.com/maps?q=${this.lat()},${this.lng()}&t=k`, '_blank');
+  }
+
+  /** Borra un lote registrado por error; el servidor lo rechaza si ya tiene cuotas anuales de agua. */
+  async eliminar(): Promise<void> {
+    const l = this.lote();
+    const confirmado = await this.dialog.confirmar({
+      tipo: 'DANGER',
+      titulo: 'Eliminar lote',
+      mensaje: `¿Eliminar el lote ${l.codigo}? Úselo solo si se registró por error: se pierde también su vínculo con el titular y no se puede deshacer. Si el lote ya tiene cuotas de agua, el sistema no lo permitirá.`,
+      textoConfirmar: 'Eliminar',
+    });
+    if (!confirmado) return;
+    this.admin.deleteLote(l.id).subscribe({
+      next: (res) => {
+        this.notify.success(res.message || 'Lote eliminado.');
+        this.eliminado.emit();
+      },
+      error: (err) => this.notify.error(err.error?.message || 'No se pudo eliminar el lote.'),
+    });
   }
 }

@@ -212,6 +212,11 @@ export class PadronUsuariosComponent implements OnInit {
     this.loteEnEdicion.set(lote);
   }
 
+  onLoteEliminado(): void {
+    this.loteDetalle.set(null);
+    this.cargar();
+  }
+
   onLoteActualizado(): void {
     this.loteEnEdicion.set(null);
     this.cargar();

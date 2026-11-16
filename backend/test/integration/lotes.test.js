@@ -290,3 +290,29 @@ test('dos ediciones simultáneas de un lote no se pisan (AP-09)', async () => {
   const [[lote]] = await db.query('SELECT referencia_ubicacion, observacion FROM lotes WHERE id = ?', [loteId]);
   assert.deepEqual(lote, { referencia_ubicacion: 'Junto al reservorio', observacion: 'Medido con GPS' });
 });
+
+test('elimina un lote registrado por error solo si no tiene cuotas anuales de agua', async () => {
+  const usuarioComun = await crearUsuario({ rol: 'USUARIO' });
+  const titular = await crearUsuario();
+  const loteError = await crearLote({ sectorId: sectorAlto, codigo: 'LJA-901', personaId: titular.personaId });
+  const loteConCuota = await crearLote({ sectorId: sectorAlto, codigo: 'LJA-902', personaId: titular.personaId });
+  await db.query(
+    "INSERT INTO obligacion_anual_agua (persona_id, lote_id, periodo_anio, valor_total, estado, fecha_emision, fecha_vencimiento) VALUES (?, ?, 2026, 30, 'PAGADA', '2026-01-01', '2026-12-31')",
+    [titular.personaId, loteConCuota]
+  );
+
+  assert.equal((await request(app).delete(`/api/lotes/${loteError}`).set(auth(usuarioComun))).status, 403);
+  assert.equal((await request(app).delete('/api/lotes/999999').set(auth(admin))).status, 404);
+
+  const bloqueado = await request(app).delete(`/api/lotes/${loteConCuota}`).set(auth(admin));
+  assert.equal(bloqueado.status, 409);
+  assert.match(bloqueado.body.message, /cuota/);
+  assert.equal((await db.query('SELECT id FROM lotes WHERE id = ?', [loteConCuota]))[0].length, 1);
+
+  const borrado = await request(app).delete(`/api/lotes/${loteError}`).set(auth(admin));
+  assert.equal(borrado.status, 200, JSON.stringify(borrado.body));
+  assert.equal((await db.query('SELECT id FROM lotes WHERE id = ?', [loteError]))[0].length, 0);
+  assert.equal((await db.query('SELECT id FROM persona_lotes WHERE lote_id = ?', [loteError]))[0].length, 0);
+  const [[auditoria]] = await db.query("SELECT detalle FROM auditoria WHERE accion = 'ELIMINAR' AND entidad = 'lotes' AND entidad_id = ?", [loteError]);
+  assert.equal(auditoria.detalle.codigo, 'LJA-901');
+});
