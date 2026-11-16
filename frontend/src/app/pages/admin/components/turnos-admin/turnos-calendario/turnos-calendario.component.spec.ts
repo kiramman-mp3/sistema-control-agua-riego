@@ -75,10 +75,7 @@ describe('TurnosCalendarioComponent', () => {
   });
 
   it('pinta el borde de cada turno con el color de su sector y deja las acciones en la tarjeta', async () => {
-    const fixture = crear([
-      turno(1, 1, '05:00', 'La Merced'),
-      turno(2, 1, '05:00', 'San Javier'),
-    ]);
+    const fixture = crear([turno(1, 1, '05:00', 'La Merced'), turno(2, 1, '05:00', 'San Javier')]);
     fixture.detectChanges();
     const tarjetas = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.shift'));
     expect(tarjetas[0].classList).toContain(`sector-${indiceSector('La Merced')}`);
