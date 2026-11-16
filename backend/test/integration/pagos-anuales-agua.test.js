@@ -24,7 +24,7 @@ const balance = () => request(app).get('/api/financiero/balance').set(auth(admin
 
 before(async () => {
   await resetDatabase();
-  admin = await crearUsuario({ rol: 'ADMIN' });
+  admin = await crearUsuario({ rol: 'TESORERO' });
   usuario = await crearUsuario();
   otro = await crearUsuario();
   const sector = await crearSector('La Jones Media');

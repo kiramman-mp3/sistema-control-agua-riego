@@ -7,7 +7,7 @@ const db = require('../config/db');
 const { conAuditoria } = require('../services/auditService');
 const finanzas = require('../services/finanzasService');
 const consultas = require('../services/finanzasConsultas');
-const { personaPermitida } = require('../shared/roles');
+const { personaFinancieraPermitida } = require('../shared/roles');
 const { badRequest, notFound } = require('../shared/errors');
 const { hoy } = require('../shared/dates');
 const archivos = require('../services/documentStorage');
@@ -45,7 +45,7 @@ async function createTarifa(req, res) {
 /** Cuentas por cobrar. Un usuario solo recibe las suyas. */
 async function getObligaciones(req, res) {
   const filtros = obligacionesQuery.parse(req.query);
-  const personaId = personaPermitida(req.user, filtros.persona_id);
+  const personaId = personaFinancieraPermitida(req.user, filtros.persona_id);
   return res.json({ status: 'OK', data: await consultas.listarObligaciones(db, { ...filtros, personaId }) });
 }
 
@@ -93,7 +93,7 @@ async function registrarPago(req, res) {
 /** Pagos registrados. Un usuario solo recibe los suyos. */
 async function getPagos(req, res) {
   const filtros = pagosQuery.parse(req.query);
-  const personaId = personaPermitida(req.user, filtros.persona_id);
+  const personaId = personaFinancieraPermitida(req.user, filtros.persona_id);
   return res.json({ status: 'OK', data: await consultas.listarPagos(db, { ...filtros, personaId }) });
 }
 
@@ -101,7 +101,7 @@ async function getPagos(req, res) {
 async function getPagoById(req, res) {
   const { id } = s.idParam.parse(req.params);
   const pago = await consultas.detallePago(db, id);
-  if (!pago || personaPermitida(req.user, pago.persona_id) !== pago.persona_id) throw notFound('Pago no encontrado.');
+  if (!pago || personaFinancieraPermitida(req.user, pago.persona_id) !== pago.persona_id) throw notFound('Pago no encontrado.');
   return res.json({ status: 'OK', data: pago });
 }
 
@@ -190,7 +190,7 @@ async function getObligacionesAnualesAgua(req, res) {
 /** Pagos anuales de agua. Un usuario solo recibe los suyos. */
 async function getPagosAnualesAgua(req, res) {
   const filtros = pagosQuery.parse(req.query);
-  const personaId = personaPermitida(req.user, filtros.persona_id);
+  const personaId = personaFinancieraPermitida(req.user, filtros.persona_id);
   return res.json({ status: 'OK', data: await consultas.listarPagosAnuales(db, { ...filtros, personaId }) });
 }
 
@@ -198,7 +198,7 @@ async function getPagosAnualesAgua(req, res) {
 async function getPagoAnualAguaById(req, res) {
   const { id } = s.idParam.parse(req.params);
   const pago = await consultas.detallePagoAnual(db, id);
-  if (!pago || personaPermitida(req.user, pago.persona_id) !== pago.persona_id) throw notFound('Pago anual de agua no encontrado.');
+  if (!pago || personaFinancieraPermitida(req.user, pago.persona_id) !== pago.persona_id) throw notFound('Pago anual de agua no encontrado.');
   return res.json({ status: 'OK', data: pago });
 }
 

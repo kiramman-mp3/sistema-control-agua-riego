@@ -12,7 +12,7 @@ let periodo = 0;
 
 before(async () => {
   await resetDatabase();
-  admin = await crearUsuario({ rol: 'ADMIN' });
+  admin = await crearUsuario({ rol: 'TESORERO' });
   usuario = await crearUsuario();
 });
 after(closeDatabase);
