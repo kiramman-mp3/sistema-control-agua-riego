@@ -8,7 +8,6 @@ El plan para darles pantalla está en [`auditoria/PLAN_PANTALLAS_SOLO_API.md`](a
 
 | Función | Endpoint | Efecto para la directiva |
 |---|---|---|
-| Eliminar un usuario registrado por error (sin historial) | `DELETE /api/personas/:id` | En pantalla solo se puede inactivar |
 | Crear y editar sectores | `/api/lotes/sectores` | Los sectores vienen cargados; uno nuevo requiere ayuda técnica |
 | Anular un egreso | `POST /api/financiero/egresos/:id/anular` | Un egreso registrado por error no se puede anular desde la pantalla |
 | Anular una obligación (exoneración) o crear una obligación manual | `/api/financiero/obligaciones`, `/api/financiero/agua-anual/obligaciones/:id/anular` | Las exoneraciones aprobadas en asamblea no tienen pantalla |
