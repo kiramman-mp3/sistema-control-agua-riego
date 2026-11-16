@@ -14,13 +14,13 @@ describe('Información de la Junta', () => {
     directiva.forEach((m) => expect(m.nombre.trim()).not.toBe(''));
   });
 
-  it('da la dirección de la sede y deja teléfono y correo por confirmar', () => {
+  it('da la dirección de la sede, el teléfono y el correo de la Junta', () => {
     const contacto = Object.fromEntries(
       INFORMACION_JUNTA.contacto.map((c) => [c.etiqueta, c.valor]),
     );
     expect(contacto['Dirección de la sede']).toBe('Complejo PROMACERO, Sector La Merced');
-    expect(contacto['Teléfono']).toBe('Por confirmar');
-    expect(contacto['Correo']).toBe('Por confirmar');
+    expect(contacto['Teléfono']).toBe('098 355 3457');
+    expect(contacto['Correo']).toBe('juntalajones@gmail.com');
   });
 
   it('no publica números de cédula de la directiva', () => {
