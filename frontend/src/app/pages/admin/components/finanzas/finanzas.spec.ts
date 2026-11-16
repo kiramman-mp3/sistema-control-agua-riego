@@ -85,6 +85,8 @@ function configurar(
   return { notify };
 }
 
+const COMPROBANTE = new File(['%PDF-1.4'], 'banco.pdf', { type: 'application/pdf' });
+
 describe('Cobro en caja', () => {
   const usuario = {
     id: 7,
@@ -209,7 +211,9 @@ describe('Cobro en caja', () => {
       c.referencia.set('');
       expect(c.bloqueo()).toContain('referencia');
       c.referencia.set('123');
+      c.comprobanteArchivo.set(COMPROBANTE);
       expect(c.bloqueo()).toBe('');
+      c.comprobanteArchivo.set(null);
     }
   });
 
@@ -217,14 +221,23 @@ describe('Cobro en caja', () => {
     const { c, registrarPago, registrarPagoAnualAgua } = crear();
     expect(c.bloqueo()).toContain('referencia');
     c.referencia.set(' 778899 ');
+    expect(c.bloqueo(), 'sin comprobante no se puede registrar').toContain('comprobante');
     await c.cobrar();
-    expect(registrarPagoAnualAgua).toHaveBeenCalledWith({
-      persona_id: 7,
-      obligacionesIds: [50, 51],
-      metodo: 'TRANSFERENCIA',
-      referencia: '778899',
-      observacion: undefined,
-    });
+    expect(registrarPagoAnualAgua).not.toHaveBeenCalled();
+    c.comprobanteArchivo.set(COMPROBANTE);
+    expect(c.bloqueo()).toBe('');
+    await c.cobrar();
+    expect(registrarPagoAnualAgua).toHaveBeenCalledWith(
+      {
+        persona_id: 7,
+        obligacionesIds: [50, 51],
+        metodo: 'TRANSFERENCIA',
+        referencia: '778899',
+        observacion: undefined,
+      },
+      COMPROBANTE,
+    );
+    expect(c.comprobanteArchivo(), 'el comprobante se limpia tras registrar').toBeNull();
     expect(registrarPago).not.toHaveBeenCalled();
     expect(c.comprobante()?.numero).toBe('REC-AGUA-000021');
     expect(c.pagoRegistradoId()).toBe(21);
@@ -317,6 +330,7 @@ describe('Cobro en caja', () => {
   it('pide confirmar el pago con el monto y no registra nada si el cajero cancela', async () => {
     const { c, registrarPagoAnualAgua, confirmar } = crear(undefined, undefined, false);
     c.referencia.set('778899');
+    c.comprobanteArchivo.set(COMPROBANTE);
     await c.cobrar();
     expect(confirmar).toHaveBeenCalledOnce();
     expect(confirmar.mock.calls[0][0].mensaje).toContain('$20.00');

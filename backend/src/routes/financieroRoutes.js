@@ -170,7 +170,7 @@ router.get('/historial', ...soloAdmin, financieroController.getHistorialAnual);
  * /financiero/agua-anual/pagos:
  *   post:
  *     tags: [Gestión Financiera]
- *     summary: Registrar el pago de obligaciones anuales de agua por transferencia o depósito (ADMIN)
+ *     summary: Registrar el pago de obligaciones anuales de agua por transferencia o depósito (ADMIN). Multipart con el campo archivo (comprobante bancario, obligatorio) y los datos del pago; obligacionesIds va como texto JSON.
  *     security: [{ bearerAuth: [] }]
  *   get:
  *     tags: [Gestión Financiera]
@@ -200,7 +200,7 @@ router.get('/agua-anual/obligaciones/:personaId', ...soloAdmin, financieroContro
 router.post('/agua-anual/obligaciones/:id/anular', ...soloAdmin, financieroController.anularObligacionAnualAgua);
 router.get('/agua-anual/pagos', verificarToken, financieroController.getPagosAnualesAgua);
 router.get('/agua-anual/pagos/:id', verificarToken, financieroController.getPagoAnualAguaById);
-router.post('/agua-anual/pagos', ...soloAdmin, financieroController.registrarPagoAnualAgua);
+router.post('/agua-anual/pagos', ...soloAdmin, recibirArchivo, financieroController.registrarPagoAnualAgua);
 router.post('/agua-anual/pagos/:id/anular', ...soloAdmin, financieroController.anularPagoAnualAgua);
 
 module.exports = router;

@@ -11,7 +11,15 @@ let admin, usuario, otro;
 const ANIO_ACTUAL = Number(hoy().slice(0, 4));
 const generar = (cuerpo, quien = admin) => request(app).post('/api/financiero/agua-anual/obligaciones').set(auth(quien)).send(cuerpo);
 const pendientes = (personaId, quien = admin) => request(app).get(`/api/financiero/agua-anual/obligaciones/${personaId}`).set(auth(quien));
-const pagar = (cuerpo, quien = admin) => request(app).post('/api/financiero/agua-anual/pagos').set(auth(quien)).send(cuerpo);
+const COMPROBANTE = Buffer.from('%PDF-1.4\nComprobante de prueba\n%%EOF');
+/** Registra un pago anual: multipart con el comprobante bancario (obligatorio), salvo que se pida sin él. */
+const pagar = (cuerpo, quien = admin, { comprobante = true } = {}) => {
+  const peticion = request(app).post('/api/financiero/agua-anual/pagos').set(auth(quien));
+  for (const [campo, valor] of Object.entries(cuerpo)) {
+    if (valor !== undefined) peticion.field(campo, Array.isArray(valor) ? JSON.stringify(valor) : String(valor));
+  }
+  return comprobante ? peticion.attach('archivo', COMPROBANTE, 'banco.pdf') : peticion;
+};
 const balance = () => request(app).get('/api/financiero/balance').set(auth(admin));
 
 before(async () => {
@@ -283,4 +291,20 @@ test('al anular un pago anual de un lote ya transferido, la cuota vuelve al titu
   assert.equal(anular.status, 200, JSON.stringify(anular.body));
   const [[cuota]] = await db.query('SELECT persona_id, estado FROM obligacion_anual_agua WHERE id = ?', [o.insertId]);
   assert.deepEqual({ persona_id: Number(cuota.persona_id), estado: cuota.estado }, { persona_id: comprador.personaId, estado: 'PENDIENTE' });
+});
+
+test('no se registra el pago anual sin el comprobante bancario', async () => {
+  const [{ insertId }] = await db.query("INSERT INTO obligacion_anual_agua (persona_id, periodo_anio, valor_total, fecha_emision, fecha_vencimiento) VALUES (?, ?, 12, CURDATE(), CURDATE())", [otro.personaId, ANIO_ACTUAL - 5]);
+  const cuerpo = { persona_id: otro.personaId, obligacionesIds: [insertId], metodo: 'TRANSFERENCIA', referencia: 'TRF-SIN-ARCHIVO' };
+  const sin = await pagar(cuerpo, admin, { comprobante: false });
+  assert.equal(sin.status, 400, JSON.stringify(sin.body));
+  assert.match(sin.body.message, /comprobante/i);
+  const [[ob]] = await db.query('SELECT estado FROM obligacion_anual_agua WHERE id = ?', [insertId]);
+  assert.equal(ob.estado, 'PENDIENTE');
+  const [[{ pagos }]] = await db.query("SELECT COUNT(*) AS pagos FROM pago_anual_agua WHERE referencia = 'TRF-SIN-ARCHIVO'");
+  assert.equal(pagos, 0);
+  const con = await pagar(cuerpo);
+  assert.equal(con.status, 201, JSON.stringify(con.body));
+  const [[pago]] = await db.query('SELECT comprobante_url FROM pago_anual_agua WHERE id = ?', [con.body.pagoId]);
+  assert.ok(pago.comprobante_url.startsWith('/uploads/documentos/pago_comprobante_'));
 });
