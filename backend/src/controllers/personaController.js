@@ -5,7 +5,7 @@ const { hoy } = require('../shared/dates');
 // Las altas y cambios de usuarios y cuentas guardan su auditoría dentro de la misma transacción.
 const { withTransaction } = require('../shared/transaction');
 const { generarPasswordTemporal, hashPassword } = require('../shared/passwords');
-const { ROLES, esAdmin } = require('../shared/roles');
+const { ROLES, ROLES_DIRECTIVA, esAdmin, esTesorero } = require('../shared/roles');
 const { badRequest, forbidden, notFound, conflict } = require('../shared/errors');
 const { aCentavos, aDolares } = require('../shared/money');
 const { patronContiene } = require('../shared/sql');
@@ -22,7 +22,7 @@ const datosPersona = {
   fecha_nacimiento: s.fechaNacimientoOpcional
 };
 
-const rolCodigo = z.enum([ROLES.ADMIN, ROLES.USUARIO]);
+const rolCodigo = z.enum([ROLES.ADMIN, ROLES.TESORERO, ROLES.USUARIO]);
 
 const listarSchema = s.paginacion.extend({
   busqueda: z.string().trim().max(100).optional(),
@@ -56,7 +56,7 @@ async function idRol(conexion, codigo) {
 }
 
 /**
- * Exige que quede al menos otro administrador efectivo (cuenta ACTIVA, rol ADMIN y persona ACTIVA)
+ * Exige que quede al menos otro administrador efectivo (cuenta ACTIVA, rol ADMIN o TESORERO y persona ACTIVA)
  * además de `personaId`. Bloquea esas filas, así dos cambios simultáneos no pueden dejar a la Junta
  * sin administrador.
  */
@@ -65,11 +65,28 @@ async function exigirOtroAdministrador(conexion, personaId, mensaje) {
     `SELECT c.id FROM cuentas c
      JOIN roles r ON r.id = c.rol_id
      JOIN personas p ON p.id = c.persona_id
-     WHERE r.codigo = 'ADMIN' AND c.estado = 'ACTIVA' AND p.estado = 'ACTIVO' AND c.persona_id <> ?
+     WHERE r.codigo IN (?) AND c.estado = 'ACTIVA' AND p.estado = 'ACTIVO' AND c.persona_id <> ?
      FOR UPDATE`,
-    [personaId]
+    [ROLES_DIRECTIVA, personaId]
   );
   if (!otros.length) throw conflict(mensaje);
+}
+
+/**
+ * El rol de tesorero lo gobierna el propio tesorero: otra cuenta de la directiva no puede tocar la cuenta de un
+ * tesorero (cambiar su rol o estado, restablecer su contraseña, quitarle la verificación en dos pasos) ni conceder
+ * el rol. La única excepción es designar al primer tesorero cuando no hay ninguno activo.
+ */
+async function exigirPermisoSobreTesorero(conexion, usuario, { cuenta = null, rolNuevo = null } = {}) {
+  if (esTesorero(usuario)) return;
+  if (cuenta?.rol === ROLES.TESORERO) throw forbidden('Solo el tesorero puede modificar la cuenta del tesorero.');
+  if (rolNuevo !== ROLES.TESORERO) return;
+  const [[{ activos }]] = await conexion.query(
+    `SELECT COUNT(*) AS activos FROM cuentas c JOIN roles r ON r.id = c.rol_id
+     JOIN personas p ON p.id = c.persona_id
+     WHERE r.codigo = 'TESORERO' AND c.estado = 'ACTIVA' AND p.estado = 'ACTIVO'`
+  );
+  if (Number(activos) > 0) throw forbidden('Solo el tesorero puede designar a otro tesorero.');
 }
 
 async function cuentaDePersona(conexion, personaId, { bloquear = false } = {}) {
@@ -315,6 +332,7 @@ async function createPersona(req, res) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [datos.cedula, datos.nombres, datos.apellidos, datos.direccion, datos.telefono, datos.celular, datos.email, datos.fecha_nacimiento]
     );
+    if (datos.crearCuenta) await exigirPermisoSobreTesorero(conexion, req.user, { rolNuevo: datos.rol });
     const passwordTemporal = datos.crearCuenta
       ? await crearCuentaEnTransaccion(conexion, { personaId: insert.insertId, rol: datos.rol, creadaPor: req.user.cuentaId })
       : null;
@@ -358,7 +376,8 @@ async function updatePersona(req, res) {
         throw forbidden('No puede desactivar su propio registro de persona.');
       }
       const cuenta = await cuentaDePersona(conexion, id, { bloquear: true });
-      if (cuenta && cuenta.rol === ROLES.ADMIN && cuenta.estado === 'ACTIVA') {
+      if (cuenta) await exigirPermisoSobreTesorero(conexion, req.user, { cuenta });
+      if (cuenta && ROLES_DIRECTIVA.includes(cuenta.rol) && cuenta.estado === 'ACTIVA') {
         await exigirOtroAdministrador(conexion, id, 'No se puede desactivar a la persona porque es el último administrador activo.');
       }
     }
@@ -399,6 +418,8 @@ async function deletePersona(req, res) {
     const [personaRows] = await conexion.query('SELECT id, cedula, nombres, apellidos FROM personas WHERE id = ? FOR UPDATE', [id]);
     if (!personaRows.length) throw notFound('Usuario no encontrado.');
     const persona = personaRows[0];
+    const cuentaDePersonaEliminada = await cuentaDePersona(conexion, id, { bloquear: true });
+    if (cuentaDePersonaEliminada) await exigirPermisoSobreTesorero(conexion, req.user, { cuenta: cuentaDePersonaEliminada });
 
     const [[{ lotesCount }]] = await conexion.query('SELECT COUNT(*) AS lotesCount FROM persona_lotes WHERE persona_id = ?', [id]);
     const [[{ obligCount }]] = await conexion.query('SELECT COUNT(*) AS obligCount FROM obligaciones WHERE persona_id = ?', [id]);
@@ -438,6 +459,7 @@ async function crearCuenta(req, res) {
     const [persona] = await conexion.query('SELECT id FROM personas WHERE id = ? FOR UPDATE', [id]);
     if (!persona.length) throw notFound('Usuario no encontrado.');
     if (await cuentaDePersona(conexion, id)) throw conflict('El usuario ya tiene una cuenta de acceso.');
+    await exigirPermisoSobreTesorero(conexion, req.user, { rolNuevo: rol });
     const clave = await crearCuentaEnTransaccion(conexion, { personaId: id, rol, creadaPor: req.user.cuentaId });
     await registrarAuditoria({ conexion, cuentaId: req.user.cuentaId, accion: 'CREAR', entidad: 'cuentas', entidadId: id, ip: req.ip, detalle: { personaId: id, rol } });
     return clave;
@@ -455,8 +477,9 @@ async function actualizarCuenta(req, res) {
     const cuenta = await cuentaDePersona(conexion, id, { bloquear: true });
     if (!cuenta) throw notFound('El usuario no tiene cuenta de acceso.');
 
-    const dejaDeSerAdmin = cuenta.rol === ROLES.ADMIN && cuenta.estado === 'ACTIVA' &&
-      ((cambios.rol && cambios.rol !== ROLES.ADMIN) || (cambios.estado && cambios.estado !== 'ACTIVA'));
+    await exigirPermisoSobreTesorero(conexion, req.user, { cuenta, rolNuevo: cambios.rol });
+    const dejaDeSerAdmin = ROLES_DIRECTIVA.includes(cuenta.rol) && cuenta.estado === 'ACTIVA' &&
+      ((cambios.rol && !ROLES_DIRECTIVA.includes(cambios.rol)) || (cambios.estado && cambios.estado !== 'ACTIVA'));
     if (dejaDeSerAdmin) await exigirOtroAdministrador(conexion, id, 'Debe existir al menos un administrador activo.');
 
     if (cambios.rol) await conexion.query('UPDATE cuentas SET rol_id = ? WHERE id = ?', [await idRol(conexion, cambios.rol), cuenta.id]);
@@ -481,6 +504,7 @@ async function restablecerPassword(req, res) {
   const passwordTemporal = await withTransaction(async (conexion) => {
     const cuenta = await cuentaDePersona(conexion, id, { bloquear: true });
     if (!cuenta) throw notFound('El usuario no tiene cuenta de acceso.');
+    await exigirPermisoSobreTesorero(conexion, req.user, { cuenta });
     const clave = generarPasswordTemporal();
     await conexion.query(
       `UPDATE cuentas SET password_hash = ?, debe_cambiar_password = TRUE, password_updated_at = ?

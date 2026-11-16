@@ -152,11 +152,14 @@ test('los turnos de un mismo sector no se solapan', async () => {
 });
 
 test('las credenciales sembradas permiten usar la API', async () => {
-  const login = await request(app).post('/api/auth/login').send({ cedula: resultado.admin.cedula, password: PASSWORD });
-  assert.equal(login.status, 200);
-  const token = login.body.token ?? login.body.data?.token;
-  const balance = await request(app).get('/api/financiero/balance').set('Authorization', `Bearer ${token}`);
-  assert.equal(balance.status, 200);
+  const entrar = async (cedula) => {
+    const login = await request(app).post('/api/auth/login').send({ cedula, password: PASSWORD });
+    assert.equal(login.status, 200);
+    return login.body.token ?? login.body.data?.token;
+  };
+  const balance = (token) => request(app).get('/api/financiero/balance').set('Authorization', `Bearer ${token}`);
+  assert.equal((await balance(await entrar(resultado.tesorero.cedula))).status, 200);
+  assert.equal((await balance(await entrar(resultado.admin.cedula))).status, 403, 'el presidente (ADMIN) no accede a las finanzas');
 
   const demo = await request(app).post('/api/auth/login').send({ cedula: resultado.demo.cedula, password: PASSWORD });
   assert.equal(demo.status, 200);
