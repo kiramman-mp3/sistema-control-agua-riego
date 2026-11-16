@@ -228,6 +228,15 @@
                   >
                     <i class="ri-map-pin-add-line" aria-hidden="true"></i>
                   </button>
+                  <button
+                    type="button"
+                    class="icon-btn icon-btn--danger"
+                    (click)="eliminarUsuario(u)"
+                    title="Eliminar usuario registrado por error"
+                    [attr.aria-label]="'Eliminar a ' + u.nombres"
+                  >
+                    <i class="ri-delete-bin-line" aria-hidden="true"></i>
+                  </button>
                 </td>
               </tr>
             }

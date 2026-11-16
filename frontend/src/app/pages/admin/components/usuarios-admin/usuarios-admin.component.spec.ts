@@ -569,3 +569,52 @@ describe('Eliminar un lote (LoteDetalleComponent)', () => {
     expect(eliminado).not.toHaveBeenCalled();
   });
 });
+
+describe('Eliminar un usuario registrado por error (PadronUsuariosComponent)', () => {
+  const usuario = { id: 4, nombres: 'Luis', apellidos: 'Aldaz' } as any;
+  const crear = (extra: any) => {
+    configurar({
+      getPersonas: vi.fn(() => of({ data: [], pagination: { total: 0, page: 1, limit: 25 } })),
+      ...extra,
+    });
+    const fixture = TestBed.createComponent(PadronUsuariosComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  };
+
+  beforeEach(() => {
+    notifyStub.success.mockClear();
+    notifyStub.error.mockClear();
+    dialogStub.confirmar.mockReset();
+  });
+
+  it('con la confirmación borra al usuario y recarga el padrón', async () => {
+    dialogStub.confirmar.mockResolvedValue(true);
+    const component = crear({
+      deletePersona: vi.fn(() => of({ status: 'OK', message: 'Usuario eliminado.' })),
+    });
+    await component.eliminarUsuario(usuario);
+    expect(admin.deletePersona).toHaveBeenCalledWith(4);
+    expect(admin.getPersonas).toHaveBeenCalledTimes(2);
+    expect(notifyStub.success).toHaveBeenCalledWith('Usuario eliminado.');
+  });
+
+  it('si se cancela no llama al servidor', async () => {
+    dialogStub.confirmar.mockResolvedValue(false);
+    const component = crear({ deletePersona: vi.fn() });
+    await component.eliminarUsuario(usuario);
+    expect(admin.deletePersona).not.toHaveBeenCalled();
+  });
+
+  it('si tiene historial muestra el motivo del servidor y no recarga', async () => {
+    dialogStub.confirmar.mockResolvedValue(true);
+    const component = crear({
+      deletePersona: vi.fn(() =>
+        throwError(() => ({ error: { message: 'Registra historial activo.' } })),
+      ),
+    });
+    await component.eliminarUsuario(usuario);
+    expect(notifyStub.error).toHaveBeenCalledWith('Registra historial activo.');
+    expect(admin.getPersonas).toHaveBeenCalledTimes(1);
+  });
+});
