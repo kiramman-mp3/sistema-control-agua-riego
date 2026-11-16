@@ -221,6 +221,15 @@ Escriba cédula o nombre en el buscador; filtre por sector y por estado (**Activ
 
 **Consideraciones:** no puede inactivarse ni cambiar su propia cuenta, ni dejar a la Junta sin administradores activos. Una persona con historial no se elimina: se inactiva.
 
+#### Eliminar un usuario registrado por error
+
+1. En el padrón, pulse el ícono de la papelera de la fila del usuario.
+2. Lea el aviso y pulse **Eliminar**.
+
+**Resultado:** el usuario y su cuenta desaparecen del padrón.
+
+**Consideraciones:** solo se puede si el usuario no tiene historial (lotes, deudas, pagos, asistencias ni sectores que represente). Si lo tiene, el sistema lo rechaza y explica por qué: en ese caso marque al usuario como **Inactivo** desde el ícono de editar. No se puede eliminar el propio registro. La acción no se puede deshacer y queda en la auditoría.
+
 #### Desbloquear una cuenta
 
 Si alguien quedó bloqueado por intentos fallidos, el padrón muestra un aviso con las cuentas bloqueadas. Pulse **Desbloquear** junto a la persona: podrá entrar de inmediato sin cambiar su contraseña.
@@ -249,6 +258,13 @@ Si alguien quedó bloqueado por intentos fallidos, el padrón muestra un aviso c
 ![Nuevo lote](assets/14-nuevo-lote.png)
 
 **Consideraciones:** la superficie es obligatoria porque el agua se cobra por hectárea. Si corrige la superficie de un lote con una cuota de agua pendiente, la cuota se recalcula; las ya pagadas no cambian. **Ver ficha** muestra el titular, la ubicación y la referencia.
+
+#### Eliminar un lote registrado por error
+
+1. En el catastro (o en los lotes de un usuario), pulse **Ver ficha** del lote.
+2. Pulse **Eliminar lote** y confirme.
+
+**Consideraciones:** solo se puede si el lote no tiene cuotas anuales de agua, pagadas o pendientes; si las tiene, el sistema lo rechaza y hay que corregir los datos con **Editar lote**. Al eliminarlo se pierde el vínculo con su titular. No se puede deshacer y queda en la auditoría.
 
 ### 8.4 Convocatorias: asambleas y mingas
 
@@ -521,7 +537,7 @@ Las confirmaciones (por ejemplo, "Noticia publicada.") aparecen en la esquina su
 
 ## 15. Limitaciones conocidas
 
-- Algunas operaciones existen en el servidor pero aún **no tienen pantalla**: eliminar un usuario registrado por error, crear sectores, anular un egreso y anular o crear una obligación manual. Requieren ayuda técnica (detalle en [`OBSERVACIONES.md`](OBSERVACIONES.md)).
+- Algunas operaciones existen en el servidor pero aún **no tienen pantalla**: crear sectores, anular un egreso y anular o crear una obligación manual. Requieren ayuda técnica (detalle en [`OBSERVACIONES.md`](OBSERVACIONES.md)).
 - La recuperación de contraseña es presencial; no hay recuperación por correo.
 - La convocatoria por WhatsApp usa WhatsApp Web (no oficial) y depende del teléfono de la Junta.
 - Los mapas necesitan internet.
