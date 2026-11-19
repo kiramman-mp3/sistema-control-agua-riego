@@ -185,7 +185,7 @@ erDiagram
 ## 4. 📚 Detalle Funcional de Tablas y Reglas de Negocio
 
 ### 4.1. Dominio de Identidad, Acceso y Organización
-- **`personas`**: Miembros de la Junta. La cédula es única y obligatoria.
+- **`personas`**: Miembros de la Junta. La cédula es única y obligatoria. Desde la migración 041 tiene `oculta_en` y `oculta_por_cuenta_id`: un usuario con historial al que se "elimina" no se borra, queda `INACTIVO` con `oculta_en` y fuera del padrón (se restaura poniéndolo `ACTIVO` y `oculta_en` en NULL).
 - **`roles`**: Perfiles de acceso (`ADMIN`, `USUARIO`).
 - **`cuentas`**: Credenciales de acceso vinculadas a una persona (`persona_id` es `UNIQUE`). Posee directamete un `rol_id`. Incluye control `debe_cambiar_password`. Las columnas `totp_*` de la verificación en dos pasos (migración 037) se eliminaron con la migración 040. El hash de la contraseña es scrypt (`scrypt$N$r$p$sal$hash`); los hashes bcrypt anteriores se convierten al iniciar sesión.
 - **`intentos_login`**: Intentos fallidos de inicio de sesión por par cuenta + IP (`cuenta_id`, `ip`, `intentos`, `bloqueado_hasta` en UTC). Al llegar a 5 intentos dentro de 15 minutos desde el primero (`primer_fallo_en`, migración 034), ese par queda bloqueado 15 minutos; un fallo fuera de esa ventana vuelve a contar desde 1. Las filas sin bloqueo vigente y sin cambios en 30 días se borran al arrancar el servidor y una vez al día; un inicio de sesión correcto limpia los intentos de esa IP y el borrado de la cuenta los elimina en cascada.
