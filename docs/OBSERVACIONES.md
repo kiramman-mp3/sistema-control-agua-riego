@@ -1,6 +1,6 @@
 # Observaciones de la documentación funcional
 
-Inconsistencias, limitaciones y puntos no verificados encontrados al preparar la [Guía de Usuario](GUIA_DE_USUARIO.md) de la versión `v1.3.2` (2026-11-13). Complementa el [inventario funcional](INVENTARIO_FUNCIONAL.md).
+Inconsistencias, limitaciones y puntos no verificados encontrados al preparar la [Guía de Usuario](GUIA_DE_USUARIO.md) de la versión `v1.6.0` (2026-11-19). Complementa el [inventario funcional](INVENTARIO_FUNCIONAL.md).
 
 ## 1. Funciones que existen en el servidor pero no tienen pantalla
 
@@ -30,6 +30,9 @@ La guía no documenta estas funciones como disponibles.
 - La convocatoria por WhatsApp necesita el servicio de WhatsApp instalado y el teléfono de la Junta vinculado; usa WhatsApp Web, que no es un servicio oficial, y el número podría ser bloqueado (ADR 0001).
 - Los mapas usan los mosaicos de OpenStreetMap: necesitan conexión a internet.
 - Al actualizar a `v1.3.0` cada persona debe volver a iniciar sesión una vez (la sesión pasó a una cookie segura).
+- Al actualizar a `v1.4.0` nadie es tesorero hasta que un administrador designe uno en Gestión de Usuarios, y los sectores no tienen representante hasta que se designe.
+- Desde `v1.5.0` el ingreso es solo con cédula y contraseña: la verificación en dos pasos se retiró y la migración `040` borra los secretos y códigos de recuperación guardados.
+- Las capturas del padrón y de la ventana de asignar lote se tomaron antes de los botones nuevos (papelera, «Ver eliminados» y el filtro Disponibles / Con propietario / Todos).
 
 ## 4. Aspectos que no se pudieron verificar
 
@@ -37,4 +40,3 @@ La guía no documenta estas funciones como disponibles.
 - **Impresión física** del cronograma, comprobantes y actas: se verificó la generación del PDF, no la impresora.
 - **Navegadores distintos de Chrome:** la revisión se hizo en Chrome de escritorio y en vista de teléfono (390 px).
 - **Datos reales:** las capturas se tomaron con la base de datos de prueba (datos ficticios); los montos y nombres no corresponden a la Junta.
-- **Aplicaciones de autenticación:** el código de verificación se generó con el mismo algoritmo estándar (RFC 6238) que usan Google Authenticator y similares, no con un teléfono.

@@ -2,8 +2,8 @@
 
 **Sistema Integrado de Gestión — Junta de Agua y Riego La Jones (Patate)**
 
-- Versión del sistema: `v1.3.2`
-- Fecha de la guía: 13 de noviembre de 2026
+- Versión del sistema: `v1.6.0`
+- Fecha de la guía: 19 de noviembre de 2026
 - Destinatarios: socios y socias de la Junta, y la directiva
 
 ---
