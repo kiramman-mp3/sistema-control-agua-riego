@@ -236,7 +236,7 @@ Si alguien quedó bloqueado por intentos fallidos, el padrón muestra un aviso c
 
 #### Asignar o transferir un terreno
 
-1. En el padrón, abra los lotes del usuario y pulse **Asignar otro terreno**.
+1. En el padrón, abra los lotes del usuario y pulse **Asignar otro lote**.
 2. Busque el lote por código o sector y elija la relación (**Propietario titular** o **Representante**).
 3. Pulse **Asignar lote** o, si ya tenía dueño, **Transferir lote**.
 

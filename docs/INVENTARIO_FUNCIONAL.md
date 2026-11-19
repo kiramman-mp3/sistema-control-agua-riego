@@ -67,7 +67,7 @@ Inventario de las funcionalidades del Sistema Integrado de Gestión de la Junta 
 | Crear cuenta de acceso, cambiar rol o estado de cuenta | Padrón → editar | Contraseña temporal mostrada una sola vez; no puede cambiar su propia cuenta | Operativa |
 | Restablecer contraseña | Padrón → editar | Nueva temporal; cierra las sesiones del usuario | Operativa |
 | Ver y desbloquear cuentas bloqueadas por intentos | Padrón (aviso superior) | — | Operativa |
-| Asignar o transferir terreno | Padrón → lotes del usuario → "Asignar otro terreno" | Un titular por lote; las cuotas de agua pendientes y los turnos pasan al nuevo titular | Operativa |
+| Asignar o transferir lote | Padrón → lotes del usuario → "Asignar otro lote" | Un titular por lote; las cuotas de agua pendientes y los turnos pasan al nuevo titular | Operativa |
 | Eliminar usuario sin historial | Padrón → ícono de papelera | Pide confirmación; con lotes, pagos u otro historial se rechaza y se debe inactivar | Operativa |
 | Eliminar lote sin cuotas de agua | Catastro o lotes del usuario → Ver ficha → "Eliminar lote" | Pide confirmación; con cuotas anuales de agua se rechaza | Operativa |
 | Catastro: listar, buscar, filtrar por sector | Catastro de lotes | — | Operativa |
