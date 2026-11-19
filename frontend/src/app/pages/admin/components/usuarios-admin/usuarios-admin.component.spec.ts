@@ -349,8 +349,30 @@ describe('Titularidad única (VincularLoteComponent)', () => {
     expect(document.body.textContent).not.toContain('La deuda sigue al lote');
   });
 
+  it('por defecto solo muestra los lotes disponibles (sin dueño) y cuenta cada vista', () => {
+    const c = crear();
+    expect(c.disponibilidad()).toBe('DISPONIBLES');
+    expect(c.lotesFiltrados().map((l) => l.id)).toEqual([11]);
+    expect(c.conteos()).toEqual({ DISPONIBLES: 1, ASIGNADOS: 2, TODOS: 3 });
+
+    c.disponibilidad.set('ASIGNADOS');
+    expect(c.lotesFiltrados().map((l) => l.id)).toEqual([10, 12]);
+
+    c.disponibilidad.set('TODOS');
+    expect(c.lotesFiltrados().map((l) => l.id)).toEqual([10, 11, 12]);
+  });
+
+  it('la búsqueda se combina con la disponibilidad elegida', () => {
+    const c = crear();
+    c.busqueda.set('LJA-010');
+    expect(c.lotesFiltrados().length).toBe(0);
+    c.disponibilidad.set('ASIGNADOS');
+    expect(c.lotesFiltrados().map((l) => l.id)).toEqual([10]);
+  });
+
   it('filtra los lotes reactivamente por codigo, sector o nombre de usuario', () => {
     const c = crear();
+    c.disponibilidad.set('TODOS');
     expect(c.lotesFiltrados().length).toBe(3);
 
     c.busqueda.set('010');
@@ -376,6 +398,7 @@ describe('Titularidad única (VincularLoteComponent)', () => {
       { id: 3, sector_id: 9, sector_nombre: 'San Javier', codigo: 'LJB-003' },
     ] as never);
     expect(c.sectores().map((s) => s.nombre)).toEqual(['La Merced', 'San Javier']);
+    expect(c.lotesFiltrados().length).toBe(3);
 
     c.sectorId.set(5);
     expect(c.lotesFiltrados().map((l) => l.id)).toEqual([1, 2]);
@@ -389,6 +412,7 @@ describe('Titularidad única (VincularLoteComponent)', () => {
 
   it('mantiene el lote actualmente seleccionado en la lista si no coincide con el filtro', () => {
     const c = crear();
+    c.disponibilidad.set('TODOS');
     c.loteId.set(11);
     c.busqueda.set('010');
     expect(c.lotesFiltrados().some((l) => l.id === 11)).toBe(true);
