@@ -45,6 +45,20 @@ Plan de trabajo vigente: corrección de los hallazgos de la auditoría de prepar
 - [x] TOTP opcional para ADMIN (AP-06). Retirado el 2026-11-16 (ADR 0005).
 - [x] Sesión en cookie `HttpOnly` (AP-11).
 
+## Sprint 6 — Cambios pedidos por la comunidad · `v1.4.0` a `v1.6.0`
+
+- [x] Comprobante bancario obligatorio antes de registrar el pago anual de agua (`v1.4.0`).
+- [x] Turnos de riego por sector, con un representante designado (`v1.4.0`, ADR 0004).
+- [x] Rol `TESORERO` con acceso exclusivo a las finanzas (`v1.4.0`, ADR 0003).
+- [x] Teléfono y correo de la Junta publicados en el inicio y el pie (`v1.4.0`).
+- [x] Retiro de la verificación en dos pasos (`v1.5.0`, ADR 0005).
+- [x] Botón para eliminar usuarios y lotes registrados por error (`v1.5.0`).
+- [x] Enlace «Mi cuenta» también para administradores y tesoreros (`v1.5.0`).
+- [x] «Asignar terreno» pasa a «Asignar lote» en las pantallas y la documentación (`v1.6.0`).
+- [x] Los usuarios con historial se ocultan en vez de rechazar su eliminación, con «Ver eliminados» y «Restaurar» (`v1.6.0`, ADR 0006).
+- [x] Lista de lotes al asignar con filtro Disponibles / Con propietario / Todos (`v1.6.0`).
+- [ ] La descarga del PDF del acta falla en un dispositivo de un usuario: pendiente de su navegador y de la consola (F12) para reproducirla.
+
 ## Fuera de este roadmap
 
 - Respaldos automáticos externos (AP-02): módulo 3.6 de la cotización de módulos pendientes.
@@ -59,3 +73,4 @@ Plan de trabajo vigente: corrección de los hallazgos de la auditoría de prepar
 | 3 | Terminado | 2026-11-13 | 2026-11-13 | En AP-06 se dejó una alerta en la auditoría y retraso de respuestas en lugar de un aviso en el padrón |
 | 4 | Terminado | 2026-11-13 | 2026-11-13 | Se encontraron y corrigieron dos errores reales: eliminar una persona fallaba siempre (tabla `asistencias_eventos` inexistente) y las ediciones parciales por API borraban campos opcionales |
 | 5 | Terminado | 2026-11-13 | 2026-11-13 | TOTP opcional (no obligatorio). Ver ADR 0002; retirado después, ver ADR 0005 |
+| 6 | Terminado (salvo el PDF del acta) | 2026-11-16 | 2026-11-19 | Cambios pedidos por la comunidad. Migraciones `038` a `041`. Publicado en `v1.4.0`, `v1.5.0` y `v1.6.0` |

@@ -91,9 +91,9 @@ Las organizaciones comunitarias de riego suelen gestionar su padrón de socios, 
   - Sistema de migraciones SQL y JS versionadas y ordenadas
 * **Pruebas y Calidad de Código:**
   - ESLint para análisis estático en frontend, backend y microservicio
-  - Vitest (283 pruebas unitarias en frontend, con cobertura medida en CI)
-  - Runner nativo de Node (`node --test`) con base de datos real (260 pruebas unitarias y de integración en backend, con cobertura medida en CI)
-  - Playwright para pruebas E2E automatizadas (186 pruebas, con revisión de accesibilidad WCAG AA mediante axe-core en ambos temas)
+  - Vitest (294 pruebas unitarias en frontend, con cobertura medida en CI)
+  - Runner nativo de Node (`node --test`) con base de datos real (266 pruebas unitarias y de integración en backend, con cobertura medida en CI)
+  - Playwright para pruebas E2E automatizadas (187 pruebas, con revisión de accesibilidad WCAG AA mediante axe-core en ambos temas)
 * **Despliegue e Infraestructura:**
   - Docker y Docker Compose para el servicio de base de datos
   - Script unificado de producción para empaquetado del frontend y servicio conjunto
@@ -284,7 +284,7 @@ npm run prod
 | Backend | `npm run db:setup` | Prepara la base de datos e inicializa el primer administrador en producción |
 | Backend | `npm run db:reset-admin -- <cédula>` | Recupera a un administrador que perdió su contraseña (genera una temporal; solo con acceso al servidor) |
 | Backend | `npm run db:seed` | Siembra usuarios, turnos, lotes y cobros simulados para demostración |
-| Frontend | `npm test -- --watch=false` | Ejecuta las 283 pruebas unitarias con Vitest |
+| Frontend | `npm test -- --watch=false` | Ejecuta las 294 pruebas unitarias con Vitest |
 | Frontend | `npm run test:cobertura` | Ejecuta las pruebas y muestra la cobertura (la usa la CI) |
 | Backend | `npm run test:cobertura` | Ejecuta las pruebas del backend y muestra la cobertura (la usa la CI) |
 | Raíz | `npm run vigilar` | Vigila `/api/health`, el espacio en disco, la lentitud, los errores 5xx y la antigüedad del respaldo, y avisa por webhook |
@@ -330,6 +330,9 @@ La lista completa para un VPS (DNS, usuario de MySQL, SSH, HTTPS, primer ingreso
 | `GET` | `/api/usuarios` | ADMIN | Lista paginada del padrón con filtros de búsqueda |
 | `POST` | `/api/usuarios` | ADMIN | Registra un nuevo socio y genera cuenta de acceso |
 | `GET` | `/api/lotes` | ADMIN | Catastro de predios y georreferenciación |
+| `DELETE` | `/api/lotes/:id` | ADMIN / TESORERO | Elimina un lote registrado por error; solo si no tiene cuotas anuales de agua |
+| `DELETE` | `/api/personas/:id` | ADMIN / TESORERO | Elimina a un usuario: sin historial se borra; con historial se oculta del padrón |
+| `POST` | `/api/personas/:id/restaurar` | ADMIN / TESORERO | Devuelve al padrón a un usuario oculto |
 | `GET` | `/api/turnos` | Autenticado | Turnos de riego por sector (un usuario ve los de sus sectores) |
 | `PUT` | `/api/turnos/sectores/:id/representante` | ADMIN / TESORERO | Designa al representante del sector que recibe el turno de agua |
 | `GET` | `/api/eventos` | ADMIN / USUARIO | Listado de asambleas y mingas comunitarias |
@@ -345,6 +348,7 @@ La lista completa para un VPS (DNS, usuario de MySQL, SSH, HTTPS, primer ingreso
 |---|---|
 | **Turnos de Riego** | Los turnos son por sector, con un representante. No se permite que se crucen dos turnos del mismo sector. |
 | **Finanzas** | Solo el rol `TESORERO` accede a cobros, pagos, tarifas, egresos, balance e historial financiero. Un `ADMIN` no puede crear ni modificar la cuenta del tesorero mientras haya uno activo. |
+| **Eliminar usuarios y lotes** | Un usuario sin historial se borra con su cuenta; con historial se **oculta** del padrón y se puede restaurar (no debe tener lotes, sectores a su cargo ni deudas pendientes). Un lote solo se elimina si no tiene cuotas anuales de agua. Todo queda en la auditoría. |
 | **Asambleas y Mingas** | Al marcar un socio como ausente no justificado, el sistema genera automáticamente una multa financiera según la tarifa fijada para el evento. |
 | **Cobro en Caja** | El cobro registra el desglose de conceptos pagados, actualiza el saldo deudor de forma atómica en una única transacción y emite recibo foliado con hash de seguridad. |
 | **Facturación Anual** | El agua se cobra una vez al año **por hectárea**: cada lote de un socio activo paga el valor por hectárea (tarifa `AGUA_ANUAL`) por sus hectáreas (m² ÷ 10.000), redondeado al centavo. La superficie es obligatoria; si algún lote por emitir no la tiene, no se emite nada y se lista cuáles son para completarlos. Corregir la superficie recalcula la cuota pendiente. La deuda sigue al lote: al transferirlo, las cuotas pendientes pasan al nuevo titular. Las multas por inasistencia siguen siendo por persona. |
@@ -371,7 +375,7 @@ Todos los formularios del panel siguen las mismas reglas para evitar errores de 
 Los cobros en caja piden confirmar el monto, la persona y el medio de pago antes de registrarse.
 
 ### Migraciones y Base de Datos
-El proyecto cuenta con 39 migraciones versionadas y aplicadas de forma secuencial (`backend/database/migrations/`). Cada cambio estructural en tablas, índices, catálogos o restricciones foráneas se realiza a través de un archivo nuevo numerado, impidiendo inconsistencias entre entornos de desarrollo y producción.
+El proyecto cuenta con 41 migraciones versionadas y aplicadas de forma secuencial (`backend/database/migrations/`). Cada cambio estructural en tablas, índices, catálogos o restricciones foráneas se realiza a través de un archivo nuevo numerado, impidiendo inconsistencias entre entornos de desarrollo y producción.
 
 ### Manejo de Fechas y Zona Horaria
 La Junta de Agua opera en la zona horaria oficial de Ecuador continental (`America/Guayaquil`, UTC-5). En la base de datos:
@@ -396,6 +400,8 @@ La Junta de Agua opera en la zona horaria oficial de Ecuador continental (`Ameri
 - [x] Scroll interno y responsivo en listas extensas de asistencia.
 - [x] Formularios con campos obligatorios marcados, máscaras, errores por campo y confirmación antes de descartar datos.
 - [x] Cobro anual del agua por hectárea, con superficie obligatoria por lote y deuda que sigue al lote al transferirlo.
+- [x] Eliminación segura de usuarios (se ocultan si tienen historial y se restauran) y de lotes registrados por error, con confirmación.
+- [x] Lista de lotes al asignar con filtro Disponibles / Con propietario / Todos.
 - [ ] Exportación de reportes financieros consolidados a formato Excel (.xlsx).
 - [ ] Integración de pasarela de pago digital para abonos en línea.
 - [ ] Notificaciones push para advertir inicios de turnos de riego en dispositivos móviles.
@@ -408,9 +414,9 @@ Información recopilada a partir del historial de versiones (`git shortlog -sn`)
 
 | Puesto | Colaborador | Commits registrados |
 |:---:|---|:---:|
-| 1 | Johan Rodríguez | 197 |
-| 2 | JoseM151 | 169 |
-| 3 | kiramman-mp3 | 123 |
+| 1 | kiramman-mp3 | 399 |
+| 2 | Johan Rodríguez | 251 |
+| 3 | JoseM151 | 169 |
 | 4 | app-secure | 19 |
 | 5 | Alejandro Falcon | 18 |
 | 6 | T1Angel4220 | 16 |
