@@ -37,7 +37,7 @@ import { textoSuperficie } from '../../../../../core/utils/superficie';
           <app-empty-state
             icono="ri-map-pin-line"
             titulo="Sin lotes vinculados"
-            mensaje="Este usuario todavía no tiene terrenos asignados."
+            mensaje="Este usuario todavía no tiene lotes asignados."
           />
         } @else {
           <div class="table-container">
@@ -89,7 +89,7 @@ import { textoSuperficie } from '../../../../../core/utils/superficie';
       <div class="modal__footer">
         <button type="button" class="btn btn--outline" (click)="cerrar.emit()">Cerrar</button>
         <button type="button" class="btn btn--primary" (click)="asignarOtro.emit()">
-          <i class="ri-map-pin-add-line" aria-hidden="true"></i> Asignar otro terreno
+          <i class="ri-map-pin-add-line" aria-hidden="true"></i> Asignar otro lote
         </button>
       </div>
     </app-modal>

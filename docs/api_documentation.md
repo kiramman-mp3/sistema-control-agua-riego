@@ -52,7 +52,8 @@ Los endpoints protegidos requieren autenticación mediante **JSON Web Tokens (JW
 | `GET` | `/personas/:id` | Autenticado | Detalle completo de una persona, incluyendo sus lotes vinculados, turnos y deudas. |
 | `POST` | `/personas` | ADMIN / SECRETARIO | Registro de un usuario con opción de creación de cuenta de acceso. |
 | `PUT` | `/personas/:id` | ADMIN / SECRETARIO | Actualización de datos personales. La fecha de nacimiento, si se envía, debe corresponder a una persona de al menos 18 años. |
-| `DELETE` | `/personas/:id` | ADMIN / TESORERO | Elimina de verdad a una persona registrada por error y su cuenta. Solo si no tiene historial (lotes, obligaciones, cuotas de agua, asistencias, pagos ni sectores que represente); si lo tiene responde `409` y hay que inactivarla. No permite eliminar el propio registro. Queda en la auditoría. |
+| `DELETE` | `/personas/:id` | ADMIN / TESORERO | Elimina a un usuario. Sin historial (lotes, obligaciones, cuotas de agua, asistencias, pagos ni sectores que represente) lo borra de verdad con su cuenta y responde `accion: "ELIMINADO"`. Con historial lo **oculta** del padrón (queda `INACTIVO` con `oculta_en`) y responde `accion: "OCULTADO"`; para ocultarlo no debe tener lotes, sectores a su cargo ni deudas pendientes, o responde `409` explicando qué falta. No permite eliminar el propio registro ni al último administrador. Queda en la auditoría (`ELIMINAR` u `OCULTAR`). |
+| `POST` | `/personas/:id/restaurar` | ADMIN / TESORERO | Devuelve al padrón a un usuario oculto (queda `ACTIVO`, con su historial). `409` si no estaba oculto. Auditoría `RESTAURAR`. |
 | `GET` | `/personas/cuentas-bloqueadas` | ADMIN | Cuentas con el inicio de sesión bloqueado ahora mismo: persona, número de redes (IP) bloqueadas y minutos restantes. |
 | `POST` | `/personas/:id/cuenta/desbloquear` | ADMIN | Levanta el bloqueo de inicio de sesión de la cuenta (desde todas las IP) sin cambiar su contraseña. |
 

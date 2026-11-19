@@ -115,7 +115,56 @@ test('no se elimina a una persona con historial ni el administrador se elimina a
   await crearObligacion({ personaId });
   const conHistorial = await request(app).delete(`/api/personas/${personaId}`).set(auth(admin));
   assert.equal(conHistorial.status, 409);
-  assert.match(conHistorial.body.message, /INACTIVO/);
+  assert.match(conHistorial.body.message, /deuda/);
   assert.equal((await request(app).delete(`/api/personas/${admin.personaId}`).set(auth(admin))).status, 403);
   assert.equal((await request(app).delete('/api/personas/999999').set(auth(admin))).status, 404);
+});
+
+test('un usuario con historial pero sin lotes ni deudas se oculta, no se borra, y se puede restaurar', async () => {
+  const { crearObligacion } = require('../helpers/fixtures');
+  const usuarioComun = await crearUsuario({ rol: 'USUARIO' });
+  const sector = await crearSector('Sector Ocultar');
+  const conLote = await crearPersona();
+  await crearLote({ sectorId: sector, personaId: conLote.personaId });
+  const bloqueadoPorLote = await request(app).delete(`/api/personas/${conLote.personaId}`).set(auth(admin));
+  assert.equal(bloqueadoPorLote.status, 409);
+  assert.match(bloqueadoPorLote.body.message, /lote/);
+
+  const oculto = await crearUsuario({ rol: 'USUARIO', nombres: 'Oculto', apellidos: 'Del Padrón' });
+  await crearObligacion({ personaId: oculto.personaId, estado: 'PAGADA' });
+  assert.equal((await request(app).delete(`/api/personas/${oculto.personaId}`).set(auth(usuarioComun))).status, 403);
+
+  const res = await request(app).delete(`/api/personas/${oculto.personaId}`).set(auth(admin));
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.accion, 'OCULTADO');
+  const [[fila]] = await db.query('SELECT estado, oculta_en, oculta_por_cuenta_id FROM personas WHERE id = ?', [oculto.personaId]);
+  assert.equal(fila.estado, 'INACTIVO');
+  assert.ok(fila.oculta_en);
+  assert.equal(Number(fila.oculta_por_cuenta_id), admin.cuentaId);
+  assert.equal((await db.query("SELECT id FROM auditoria WHERE accion = 'OCULTAR' AND entidad = 'personas' AND entidad_id = ?", [oculto.personaId]))[0].length, 1);
+
+  // Sale del padrón por defecto, aparece solo en "ocultos", y ya no puede entrar.
+  assert.deepEqual(await cedulasDe(oculto.cedula), []);
+  const soloOcultos = await request(app).get('/api/personas').query({ ocultos: 'solo' }).set(auth(admin));
+  assert.deepEqual(soloOcultos.body.data.map((p) => p.cedula), [oculto.cedula]);
+  assert.ok(soloOcultos.body.data[0].oculta_en);
+  assert.equal((await request(app).get('/api/auth/me').set(auth(oculto))).status, 401);
+
+  // No se vuelve a registrar ni se edita ni se oculta dos veces: se restaura.
+  const repetida = await request(app).post('/api/personas').set(auth(admin)).send({ cedula: oculto.cedula, nombres: 'Otra', apellidos: 'Persona' });
+  assert.equal(repetida.status, 409);
+  assert.equal(repetida.body.codigo, 'PERSONA_OCULTA');
+  assert.equal(repetida.body.personaId, oculto.personaId);
+  assert.equal((await request(app).put(`/api/personas/${oculto.personaId}`).set(auth(admin)).send({ nombres: 'X', apellidos: 'Y' })).status, 409);
+  assert.equal((await request(app).delete(`/api/personas/${oculto.personaId}`).set(auth(admin))).status, 409);
+
+  assert.equal((await request(app).post(`/api/personas/${oculto.personaId}/restaurar`).set(auth(usuarioComun))).status, 403);
+  const restaurada = await request(app).post(`/api/personas/${oculto.personaId}/restaurar`).set(auth(admin));
+  assert.equal(restaurada.status, 200, JSON.stringify(restaurada.body));
+  assert.deepEqual(await cedulasDe(oculto.cedula), [oculto.cedula]);
+  const [[despues]] = await db.query('SELECT estado, oculta_en FROM personas WHERE id = ?', [oculto.personaId]);
+  assert.equal(despues.estado, 'ACTIVO');
+  assert.equal(despues.oculta_en, null);
+  assert.equal((await request(app).get('/api/auth/me').set(auth(oculto))).status, 200);
+  assert.equal((await request(app).post(`/api/personas/${oculto.personaId}/restaurar`).set(auth(admin))).status, 409);
 });

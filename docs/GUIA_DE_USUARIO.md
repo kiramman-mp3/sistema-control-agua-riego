@@ -2,8 +2,8 @@
 
 **Sistema Integrado de Gestión — Junta de Agua y Riego La Jones (Patate)**
 
-- Versión del sistema: `v1.3.2`
-- Fecha de la guía: 13 de noviembre de 2026
+- Versión del sistema: `v1.6.0`
+- Fecha de la guía: 19 de noviembre de 2026
 - Destinatarios: socios y socias de la Junta, y la directiva
 
 ---
@@ -221,24 +221,30 @@ Escriba cédula o nombre en el buscador; filtre por sector y por estado (**Activ
 
 **Consideraciones:** no puede inactivarse ni cambiar su propia cuenta, ni dejar a la Junta sin administradores activos. Una persona con historial no se elimina: se inactiva.
 
-#### Eliminar un usuario registrado por error
+#### Eliminar un usuario (y restaurarlo)
 
 1. En el padrón, pulse el ícono de la papelera de la fila del usuario.
 2. Lea el aviso y pulse **Eliminar**.
 
-**Resultado:** el usuario y su cuenta desaparecen del padrón.
+**Resultado:** si el usuario no tenía historial (por ejemplo, uno creado en pruebas), se borra para siempre con su cuenta. Si ya tenía movimientos, **no se borra**: queda **oculto** del padrón y su historial se conserva. El aviso en pantalla dice cuál de las dos cosas pasó.
 
-**Consideraciones:** solo se puede si el usuario no tiene historial (lotes, deudas, pagos, asistencias ni sectores que represente). Si lo tiene, el sistema lo rechaza y explica por qué: en ese caso marque al usuario como **Inactivo** desde el ícono de editar. No se puede eliminar el propio registro. La acción no se puede deshacer y queda en la auditoría.
+**Consideraciones:**
+- Para ocultar a un usuario con historial no debe tener **lotes** (transfiéralos antes a otra persona), **sectores a su cargo** (designe otro representante) ni **deudas pendientes** (cóbrelas o anúlelas). Si falta algo, el sistema lo rechaza y dice qué.
+- No se puede eliminar el propio registro ni al último administrador.
+- Para ver a los ocultos pulse **Ver eliminados** y use **Restaurar**: el usuario vuelve al padrón activo con todo su historial. Mientras esté oculto no puede iniciar sesión.
+- La cédula de un usuario oculto sigue ocupada: al registrarla de nuevo el sistema indica que debe restaurarlo.
+- Todo queda en la auditoría.
 
 #### Desbloquear una cuenta
 
 Si alguien quedó bloqueado por intentos fallidos, el padrón muestra un aviso con las cuentas bloqueadas. Pulse **Desbloquear** junto a la persona: podrá entrar de inmediato sin cambiar su contraseña.
 
-#### Asignar o transferir un terreno
+#### Asignar o transferir un lote
 
-1. En el padrón, abra los lotes del usuario y pulse **Asignar otro terreno**.
-2. Busque el lote por código o sector y elija la relación (**Propietario titular** o **Representante**).
-3. Pulse **Asignar lote** o, si ya tenía dueño, **Transferir lote**.
+1. En el padrón, pulse el ícono **Asignar lote** de la fila del usuario (o abra sus lotes y pulse **Asignar otro lote**).
+2. Elija qué lotes ver con los botones de arriba de la lista: **Disponibles** (sin dueño, es lo que aparece al abrir), **Con propietario** (para transferir un lote por venta o herencia) o **Todos**. Cada botón muestra cuántos lotes tiene.
+3. Busque el lote por código o sector y elija la relación (**Propietario titular** o **Representante**).
+4. Pulse **Asignar lote** o, si ya tenía dueño, **Transferir lote**.
 
 **Consideraciones:** cada lote tiene un solo titular. Al transferir, el sistema muestra antes la deuda de agua del lote: **las cuotas pendientes pasan al nuevo titular**; lo ya pagado queda en el historial del anterior.
 

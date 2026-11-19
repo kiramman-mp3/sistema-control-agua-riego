@@ -71,6 +71,8 @@ export class PadronUsuariosComponent implements OnInit {
   readonly total = signal(0);
   /** Cuentas bloqueadas por intentos fallidos: la directiva las ve y las desbloquea. */
   readonly bloqueadas = signal<CuentaBloqueada[]>([]);
+  /** Muestra a los usuarios eliminados (ocultos) en vez del padrón normal. */
+  readonly verEliminados = signal(false);
 
   busqueda = '';
   estadoFiltro = '';
@@ -136,15 +138,17 @@ export class PadronUsuariosComponent implements OnInit {
   cargar(): void {
     this.cargando.set(true);
     this.error.set(false);
-    const peticion$ = this.sectorFiltro
-      ? this.admin.getPersonas(
-          this.pagina(),
-          this.porPagina(),
-          this.busqueda,
-          this.estadoFiltro,
-          this.sectorFiltro,
-        )
-      : this.admin.getPersonas(this.pagina(), this.porPagina(), this.busqueda, this.estadoFiltro);
+    const peticion$ = this.verEliminados()
+      ? this.admin.getPersonasOcultas(this.pagina(), this.porPagina(), this.busqueda)
+      : this.sectorFiltro
+        ? this.admin.getPersonas(
+            this.pagina(),
+            this.porPagina(),
+            this.busqueda,
+            this.estadoFiltro,
+            this.sectorFiltro,
+          )
+        : this.admin.getPersonas(this.pagina(), this.porPagina(), this.busqueda, this.estadoFiltro);
 
     peticion$.subscribe({
       next: (res) => {
@@ -174,6 +178,14 @@ export class PadronUsuariosComponent implements OnInit {
     } else {
       this.busqueda$.next();
     }
+  }
+
+  alternarEliminados(): void {
+    this.verEliminados.update((v) => !v);
+    this.busqueda = '';
+    this.estadoFiltro = '';
+    this.sectorFiltro = null;
+    this.filtrar(true);
   }
 
   limpiarFiltros(): void {
@@ -214,12 +226,15 @@ export class PadronUsuariosComponent implements OnInit {
     this.loteEnEdicion.set(lote);
   }
 
-  /** Borra un usuario registrado por error; el servidor lo rechaza si ya tiene historial (entonces se inactiva). */
+  /**
+   * Elimina un usuario tras confirmar. Sin historial se borra de verdad; con historial el servidor lo oculta del
+   * padrón (se restaura desde "Ver eliminados") o, si aún tiene lotes, sectores o deudas, explica qué falta.
+   */
   async eliminarUsuario(usuario: PersonaListado): Promise<void> {
     const confirmado = await this.dialog.confirmar({
       tipo: 'DANGER',
       titulo: 'Eliminar usuario',
-      mensaje: `¿Eliminar a ${usuario.nombres} ${usuario.apellidos}? Úselo solo si se registró por error: se borra también su cuenta y no se puede deshacer. Si ya tiene lotes, pagos u otro historial, el sistema no lo permitirá y deberá marcarlo como inactivo.`,
+      mensaje: `¿Eliminar a ${usuario.nombres} ${usuario.apellidos}? Si no tiene historial se borra para siempre junto con su cuenta. Si ya tiene movimientos, no se borra: queda oculto del padrón y podrá restaurarlo desde "Ver eliminados". Para ocultarlo no debe tener lotes, sectores a su cargo ni deudas pendientes.`,
       textoConfirmar: 'Eliminar',
     });
     if (!confirmado) return;
@@ -229,6 +244,24 @@ export class PadronUsuariosComponent implements OnInit {
         this.cargar();
       },
       error: (err) => this.notify.error(err.error?.message || 'No se pudo eliminar al usuario.'),
+    });
+  }
+
+  /** Devuelve al padrón a un usuario eliminado (oculto). */
+  async restaurarUsuario(usuario: PersonaListado): Promise<void> {
+    const confirmado = await this.dialog.confirmar({
+      tipo: 'CONFIRM',
+      titulo: 'Restaurar usuario',
+      mensaje: `¿Devolver a ${usuario.nombres} ${usuario.apellidos} al padrón? Quedará activo con su historial intacto.`,
+      textoConfirmar: 'Restaurar',
+    });
+    if (!confirmado) return;
+    this.admin.restaurarPersona(usuario.id).subscribe({
+      next: (res) => {
+        this.notify.success(res.message || 'Usuario restaurado.');
+        this.cargar();
+      },
+      error: (err) => this.notify.error(err.error?.message || 'No se pudo restaurar al usuario.'),
     });
   }
 

@@ -16,10 +16,14 @@ async function buscarLote(page, codigo) {
   return filasCatastro(page).first();
 }
 
-/** Abre "Asignar terreno" de un usuario y deja elegido el lote por su código. */
-async function abrirAsignacion(page, cedula, codigo) {
+/**
+ * Abre "Asignar lote" de un usuario y deja elegido el lote por su código. La lista parte en "Disponibles" (sin dueño);
+ * para transferir un lote que ya tiene dueño se pasa `vista: 'Con propietario'`.
+ */
+async function abrirAsignacion(page, cedula, codigo, { vista = null } = {}) {
   const fila = await buscarEnPadron(page, cedula);
-  await fila.getByRole('button', { name: /^Asignar terreno a / }).click();
+  await fila.getByRole('button', { name: /^Asignar lote a / }).click();
+  if (vista) await page.getByRole('button', { name: new RegExp(`^${vista}`) }).click();
   await page.getByLabel('Buscar lote').fill(codigo);
   const lote = page.locator('.lote-opt', { hasText: `Lote ${codigo}` });
   await expect(lote).toHaveCount(1);
@@ -100,7 +104,7 @@ test('asignar el lote a un usuario lo convierte en su titular único', async ({ 
   await abrirAsignacion(page, nuevo.cedula, codigoLote);
   await expect(page.getByText('Titularidad única')).toBeVisible();
   await expect(page.getByRole('alert').filter({ hasText: 'pertenece a' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Asignar lote' }).click();
+  await page.getByRole('button', { name: 'Asignar lote', exact: true }).click();
   await expect(aviso(page, /asign|vincul/i)).toBeVisible();
 
   const fila = await buscarLote(page, codigoLote);
@@ -114,12 +118,26 @@ test('asignar el lote a un usuario lo convierte en su titular único', async ({ 
   await page.getByRole('dialog').getByRole('button', { name: 'Cerrar' }).last().click();
 });
 
+test('la lista de lotes parte en los disponibles y un lote con dueño solo sale en "Con propietario"', async ({ page }) => {
+  const { nuevo, codigoLote } = leerEstado();
+  const fila = await buscarEnPadron(page, nuevo.cedula);
+  await fila.getByRole('button', { name: /^Asignar lote a / }).click();
+  await expect(page.getByRole('button', { name: /^Disponibles/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel('Buscar lote').fill(codigoLote);
+  // El lote ya es de `nuevo`: no figura entre los disponibles, pero sí con propietario y en todos.
+  await expect(page.locator('.lote-opt', { hasText: `Lote ${codigoLote}` })).toHaveCount(0);
+  await page.getByRole('button', { name: /^Con propietario/ }).click();
+  await expect(page.locator('.lote-opt', { hasText: `Lote ${codigoLote}` })).toHaveCount(1);
+  await page.getByRole('button', { name: /^Todos/ }).click();
+  await expect(page.locator('.lote-opt', { hasText: `Lote ${codigoLote}` })).toHaveCount(1);
+});
+
 test('transferir el lote avisa del titular actual y pasa el 100 % al nuevo usuario', async ({ page, request }) => {
   const { nuevo, codigoLote } = leerEstado();
   const receptor = await crearUsuarioConCuenta(request);
   guardarEstado({ receptor });
 
-  await abrirAsignacion(page, receptor.cedula, codigoLote);
+  await abrirAsignacion(page, receptor.cedula, codigoLote, { vista: 'Con propietario' });
   const aviso100 = page.getByRole('alert').filter({ hasText: 'pertenece a' });
   await expect(aviso100).toContainText(nuevo.nombres);
   await expect(aviso100).toContainText('100 %');
