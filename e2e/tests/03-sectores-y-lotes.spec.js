@@ -16,10 +16,10 @@ async function buscarLote(page, codigo) {
   return filasCatastro(page).first();
 }
 
-/** Abre "Asignar terreno" de un usuario y deja elegido el lote por su código. */
+/** Abre "Asignar lote" de un usuario y deja elegido el lote por su código. */
 async function abrirAsignacion(page, cedula, codigo) {
   const fila = await buscarEnPadron(page, cedula);
-  await fila.getByRole('button', { name: /^Asignar terreno a / }).click();
+  await fila.getByRole('button', { name: /^Asignar lote a / }).click();
   await page.getByLabel('Buscar lote').fill(codigo);
   const lote = page.locator('.lote-opt', { hasText: `Lote ${codigo}` });
   await expect(lote).toHaveCount(1);
@@ -100,7 +100,7 @@ test('asignar el lote a un usuario lo convierte en su titular único', async ({ 
   await abrirAsignacion(page, nuevo.cedula, codigoLote);
   await expect(page.getByText('Titularidad única')).toBeVisible();
   await expect(page.getByRole('alert').filter({ hasText: 'pertenece a' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Asignar lote' }).click();
+  await page.getByRole('button', { name: 'Asignar lote', exact: true }).click();
   await expect(aviso(page, /asign|vincul/i)).toBeVisible();
 
   const fila = await buscarLote(page, codigoLote);

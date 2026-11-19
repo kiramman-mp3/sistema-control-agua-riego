@@ -31,7 +31,7 @@ export const PORCENTAJE_TITULARIDAD = 100;
   template: `
     @let c = usuario();
     <app-modal
-      titulo="Asignar terreno"
+      titulo="Asignar lote"
       [subtitulo]="c.apellidos + ' ' + c.nombres + ' · C.I. ' + c.cedula"
       icono="ri-link"
       tamano="md"
