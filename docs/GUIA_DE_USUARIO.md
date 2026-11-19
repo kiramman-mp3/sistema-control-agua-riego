@@ -239,11 +239,12 @@ Escriba cédula o nombre en el buscador; filtre por sector y por estado (**Activ
 
 Si alguien quedó bloqueado por intentos fallidos, el padrón muestra un aviso con las cuentas bloqueadas. Pulse **Desbloquear** junto a la persona: podrá entrar de inmediato sin cambiar su contraseña.
 
-#### Asignar o transferir un terreno
+#### Asignar o transferir un lote
 
-1. En el padrón, abra los lotes del usuario y pulse **Asignar otro lote**.
-2. Busque el lote por código o sector y elija la relación (**Propietario titular** o **Representante**).
-3. Pulse **Asignar lote** o, si ya tenía dueño, **Transferir lote**.
+1. En el padrón, pulse el ícono **Asignar lote** de la fila del usuario (o abra sus lotes y pulse **Asignar otro lote**).
+2. Elija qué lotes ver con los botones de arriba de la lista: **Disponibles** (sin dueño, es lo que aparece al abrir), **Con propietario** (para transferir un lote por venta o herencia) o **Todos**. Cada botón muestra cuántos lotes tiene.
+3. Busque el lote por código o sector y elija la relación (**Propietario titular** o **Representante**).
+4. Pulse **Asignar lote** o, si ya tenía dueño, **Transferir lote**.
 
 **Consideraciones:** cada lote tiene un solo titular. Al transferir, el sistema muestra antes la deuda de agua del lote: **las cuotas pendientes pasan al nuevo titular**; lo ya pagado queda en el historial del anterior.
 
