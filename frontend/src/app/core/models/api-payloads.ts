@@ -236,6 +236,8 @@ export interface PersonaListado extends PersonaItem {
   hectareas_total?: number;
   /** Pago anual de agua que le corresponde con la tarifa por hectárea vigente; null sin tarifa. */
   valor_anual_agua?: number | null;
+  /** Fecha en que se eliminó (ocultó) al usuario; null si está visible en el padrón. */
+  oculta_en?: string | null;
 }
 
 /** Cuenta con el inicio de sesión bloqueado por intentos fallidos (GET /personas/cuentas-bloqueadas). */

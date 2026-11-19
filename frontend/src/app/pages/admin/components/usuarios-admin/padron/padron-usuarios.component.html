@@ -54,27 +54,40 @@
             aria-label="Buscar usuario"
           />
         </div>
-        <select
-          class="input toolbar__select"
-          [(ngModel)]="sectorFiltro"
-          (ngModelChange)="filtrar(true)"
-          aria-label="Sector"
+        @if (!verEliminados()) {
+          <select
+            class="input toolbar__select"
+            [(ngModel)]="sectorFiltro"
+            (ngModelChange)="filtrar(true)"
+            aria-label="Sector"
+          >
+            <option [ngValue]="null">Todos los sectores</option>
+            @for (s of sectores(); track s.id) {
+              <option [ngValue]="s.id">{{ s.nombre }}</option>
+            }
+          </select>
+          <select
+            class="input toolbar__select"
+            [(ngModel)]="estadoFiltro"
+            (ngModelChange)="filtrar(true)"
+            aria-label="Estado"
+          >
+            <option value="">Todos los estados</option>
+            <option value="ACTIVO">Activos</option>
+            <option value="INACTIVO">Inactivos</option>
+          </select>
+        }
+        <button
+          type="button"
+          class="btn btn--sm"
+          [class.btn--outline]="!verEliminados()"
+          [class.btn--primary]="verEliminados()"
+          (click)="alternarEliminados()"
+          [attr.aria-pressed]="verEliminados()"
         >
-          <option [ngValue]="null">Todos los sectores</option>
-          @for (s of sectores(); track s.id) {
-            <option [ngValue]="s.id">{{ s.nombre }}</option>
-          }
-        </select>
-        <select
-          class="input toolbar__select"
-          [(ngModel)]="estadoFiltro"
-          (ngModelChange)="filtrar(true)"
-          aria-label="Estado"
-        >
-          <option value="">Todos los estados</option>
-          <option value="ACTIVO">Activos</option>
-          <option value="INACTIVO">Inactivos</option>
-        </select>
+          <i class="ri-delete-bin-line" aria-hidden="true"></i>
+          {{ verEliminados() ? 'Volver al padrón' : 'Ver eliminados' }}
+        </button>
       </div>
     </div>
 
@@ -92,7 +105,17 @@
         </button>
       </app-empty-state>
     } @else if (!usuarios().length) {
-      @if (busqueda || estadoFiltro || sectorFiltro) {
+      @if (verEliminados()) {
+        <app-empty-state
+          icono="ri-delete-bin-line"
+          titulo="No hay usuarios eliminados"
+          [mensaje]="
+            busqueda
+              ? 'Ningún usuario eliminado coincide con la búsqueda.'
+              : 'Los usuarios con historial que elimine quedarán aquí y podrá restaurarlos.'
+          "
+        />
+      } @else if (busqueda || estadoFiltro || sectorFiltro) {
         <app-empty-state
           icono="ri-user-search-line"
           titulo="Sin coincidencias"
@@ -210,33 +233,44 @@
                   >
                 </td>
                 <td class="cell-actions">
-                  <button
-                    type="button"
-                    class="icon-btn"
-                    (click)="formulario.set({ usuario: u })"
-                    title="Editar usuario"
-                    [attr.aria-label]="'Editar a ' + u.nombres"
-                  >
-                    <i class="ri-edit-line" aria-hidden="true"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="icon-btn"
-                    (click)="vincularA.set(u)"
-                    title="Asignar lote"
-                    [attr.aria-label]="'Asignar lote a ' + u.nombres"
-                  >
-                    <i class="ri-map-pin-add-line" aria-hidden="true"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="icon-btn icon-btn--danger"
-                    (click)="eliminarUsuario(u)"
-                    title="Eliminar usuario registrado por error"
-                    [attr.aria-label]="'Eliminar a ' + u.nombres"
-                  >
-                    <i class="ri-delete-bin-line" aria-hidden="true"></i>
-                  </button>
+                  @if (verEliminados()) {
+                    <button
+                      type="button"
+                      class="btn btn--outline btn--sm"
+                      (click)="restaurarUsuario(u)"
+                      [attr.aria-label]="'Restaurar a ' + u.nombres"
+                    >
+                      <i class="ri-arrow-go-back-line" aria-hidden="true"></i> Restaurar
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      (click)="formulario.set({ usuario: u })"
+                      title="Editar usuario"
+                      [attr.aria-label]="'Editar a ' + u.nombres"
+                    >
+                      <i class="ri-edit-line" aria-hidden="true"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      (click)="vincularA.set(u)"
+                      title="Asignar lote"
+                      [attr.aria-label]="'Asignar lote a ' + u.nombres"
+                    >
+                      <i class="ri-map-pin-add-line" aria-hidden="true"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-btn icon-btn--danger"
+                      (click)="eliminarUsuario(u)"
+                      title="Eliminar usuario registrado por error"
+                      [attr.aria-label]="'Eliminar a ' + u.nombres"
+                    >
+                      <i class="ri-delete-bin-line" aria-hidden="true"></i>
+                    </button>
+                  }
                 </td>
               </tr>
             }

@@ -618,3 +618,58 @@ describe('Eliminar un usuario registrado por error (PadronUsuariosComponent)', (
     expect(admin.getPersonas).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Ver y restaurar usuarios eliminados (PadronUsuariosComponent)', () => {
+  const vacio = of({ data: [], pagination: { total: 0, page: 1, limit: 25 } });
+  const oculto = { id: 9, nombres: 'Luis', apellidos: 'Aldaz', oculta_en: '2026-11-19' } as any;
+  const crear = (extra: any = {}) => {
+    configurar({
+      getPersonas: vi.fn(() => vacio),
+      getPersonasOcultas: vi.fn(() =>
+        of({ data: [oculto], pagination: { total: 1, page: 1, limit: 25 } }),
+      ),
+      ...extra,
+    });
+    const fixture = TestBed.createComponent(PadronUsuariosComponent);
+    fixture.detectChanges();
+    return fixture.componentInstance;
+  };
+
+  beforeEach(() => {
+    notifyStub.success.mockClear();
+    notifyStub.error.mockClear();
+    dialogStub.confirmar.mockReset();
+  });
+
+  it('alternar a "Ver eliminados" pide solo los ocultos y volver trae el padrón normal', () => {
+    const component = crear();
+    component.alternarEliminados();
+    expect(component.verEliminados()).toBe(true);
+    expect(admin.getPersonasOcultas).toHaveBeenLastCalledWith(1, 25, '');
+    expect(component.usuarios()).toEqual([oculto]);
+    component.alternarEliminados();
+    expect(component.verEliminados()).toBe(false);
+    expect(admin.getPersonas).toHaveBeenCalledTimes(2);
+  });
+
+  it('restaurar confirma, llama al servidor y recarga la lista de eliminados', async () => {
+    dialogStub.confirmar.mockResolvedValue(true);
+    const component = crear({
+      restaurarPersona: vi.fn(() =>
+        of({ status: 'OK', message: 'Usuario restaurado en el padrón.' }),
+      ),
+    });
+    component.alternarEliminados();
+    await component.restaurarUsuario(oculto);
+    expect(admin.restaurarPersona).toHaveBeenCalledWith(9);
+    expect(admin.getPersonasOcultas).toHaveBeenCalledTimes(2);
+    expect(notifyStub.success).toHaveBeenCalledWith('Usuario restaurado en el padrón.');
+  });
+
+  it('si se cancela la restauración no llama al servidor', async () => {
+    dialogStub.confirmar.mockResolvedValue(false);
+    const component = crear({ restaurarPersona: vi.fn() });
+    await component.restaurarUsuario(oculto);
+    expect(admin.restaurarPersona).not.toHaveBeenCalled();
+  });
+});

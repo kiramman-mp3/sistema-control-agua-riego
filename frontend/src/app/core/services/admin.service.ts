@@ -74,8 +74,29 @@ export class AdminService {
     return this.http.put<RespuestaMensaje>(`${this.baseUrl}/personas/${id}`, data);
   }
 
-  deletePersona(id: number): Observable<RespuestaMensaje> {
-    return this.http.delete<RespuestaMensaje>(`${this.baseUrl}/personas/${id}`);
+  /** Sin historial borra al usuario (`ELIMINADO`); con historial lo oculta del padrón (`OCULTADO`). */
+  deletePersona(id: number): Observable<RespuestaMensaje & { accion?: 'ELIMINADO' | 'OCULTADO' }> {
+    return this.http.delete<RespuestaMensaje & { accion?: 'ELIMINADO' | 'OCULTADO' }>(
+      `${this.baseUrl}/personas/${id}`,
+    );
+  }
+
+  /** Usuarios eliminados (ocultos) del padrón. */
+  getPersonasOcultas(
+    page = 1,
+    limit = 25,
+    busqueda = '',
+  ): Observable<RespuestaPaginada<PersonaListado>> {
+    let params = new HttpParams()
+      .set('ocultos', 'solo')
+      .set('page', page)
+      .set('limit', Math.min(limit, 100));
+    if (busqueda) params = params.set('busqueda', busqueda);
+    return this.http.get<RespuestaPaginada<PersonaListado>>(`${this.baseUrl}/personas`, { params });
+  }
+
+  restaurarPersona(id: number): Observable<RespuestaMensaje> {
+    return this.http.post<RespuestaMensaje>(`${this.baseUrl}/personas/${id}/restaurar`, {});
   }
 
   /** Crea la cuenta de acceso de un usuario; la respuesta trae la contraseña temporal. */
