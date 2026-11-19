@@ -17,6 +17,11 @@ import { ModalComponent } from '../../../../../shared/ui/modal.component';
 import { LoteItem, PersonaListado } from '../../../../../core/models/api-payloads';
 import { AYUDAS_FORMULARIO } from '../../../../../core/directives/formularios';
 
+export type Disponibilidad = 'DISPONIBLES' | 'ASIGNADOS' | 'TODOS';
+
+/** Un lote tiene dueño cuando el catastro le trae un titular. */
+const tieneDueno = (l: LoteItem): boolean => Boolean(l.propietario_id || l.propietarios);
+
 /** Titularidad única: un lote pertenece al 100 % a un solo usuario (lo valida también el servidor). */
 export const PORCENTAJE_TITULARIDAD = 100;
 
@@ -76,6 +81,24 @@ export const PORCENTAJE_TITULARIDAD = 100;
                 }
               </select>
             </div>
+            <div
+              class="chips lote-disponibilidad"
+              role="group"
+              aria-label="Disponibilidad del lote"
+            >
+              @for (o of opcionesDisponibilidad; track o.valor) {
+                <button
+                  type="button"
+                  class="chip"
+                  [class.chip--active]="disponibilidad() === o.valor"
+                  [attr.aria-pressed]="disponibilidad() === o.valor"
+                  [disabled]="cargando()"
+                  (click)="disponibilidad.set(o.valor)"
+                >
+                  {{ o.etiqueta }} ({{ conteos()[o.valor] }})
+                </button>
+              }
+            </div>
             <div class="lote-list" role="radiogroup" aria-label="Lotes">
               @if (cargando()) {
                 <p class="lote-list__vacio">Cargando lotes…</p>
@@ -101,13 +124,20 @@ export const PORCENTAJE_TITULARIDAD = 100;
                     </span>
                   </label>
                 } @empty {
-                  <p class="lote-list__vacio">Ningún lote coincide con la búsqueda o el sector.</p>
+                  <p class="lote-list__vacio">
+                    @if (disponibilidad() === 'DISPONIBLES') {
+                      Ningún lote disponible coincide. Para transferir un lote que ya tiene dueño,
+                      elija «Con propietario».
+                    } @else {
+                      Ningún lote coincide con la búsqueda o el sector.
+                    }
+                  </p>
                 }
               }
             </div>
             @if (!cargando()) {
               <small class="field__hint">
-                {{ lotesFiltrados().length }} de {{ lotes().length }} lotes
+                {{ lotesFiltrados().length }} de {{ conteos()[disponibilidad()] }} lotes
               </small>
             }
           </fieldset>
@@ -187,6 +217,16 @@ export class VincularLoteComponent implements OnInit {
   readonly loteId = signal<number | null>(null);
   readonly busqueda = signal('');
   readonly sectorId = signal<number | null>(null);
+  /**
+   * Por defecto solo los lotes sin dueño, para no asignar uno que ya está asignado. «Con propietario» sirve para
+   * transferir un lote (venta o herencia) y «Todos» muestra el catastro completo.
+   */
+  readonly disponibilidad = signal<Disponibilidad>('DISPONIBLES');
+  readonly opcionesDisponibilidad: { valor: Disponibilidad; etiqueta: string }[] = [
+    { valor: 'DISPONIBLES', etiqueta: 'Disponibles' },
+    { valor: 'ASIGNADOS', etiqueta: 'Con propietario' },
+    { valor: 'TODOS', etiqueta: 'Todos' },
+  ];
   /** Cuotas anuales de agua pendientes del lote elegido, cuando tiene otro titular. */
   readonly deuda = signal<DeudaAguaLote | null>(null);
   tipoRelacion: 'PROPIETARIO' | 'REPRESENTANTE' = 'PROPIETARIO';
@@ -200,14 +240,23 @@ export class VincularLoteComponent implements OnInit {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   });
 
-  /** Lotes filtrados por sector y por código, sector, ID o propietario, conservando el seleccionado si existe. */
+  /** Cuántos lotes hay en cada vista de disponibilidad (sin contar la búsqueda ni el sector). */
+  readonly conteos = computed<Record<Disponibilidad, number>>(() => {
+    const todos = this.lotes();
+    const asignados = todos.filter(tieneDueno).length;
+    return { TODOS: todos.length, ASIGNADOS: asignados, DISPONIBLES: todos.length - asignados };
+  });
+
+  /** Lotes filtrados por disponibilidad, sector y por código, sector, ID o propietario, conservando el seleccionado si existe. */
   readonly lotesFiltrados = computed(() => {
     const q = this.busqueda().trim().toLowerCase();
     const sectorElegido = this.sectorId();
+    const vista = this.disponibilidad();
     const todos = this.lotes();
-    if (!q && sectorElegido === null) return todos;
 
     const coinciden = todos.filter((l) => {
+      if (vista === 'DISPONIBLES' && tieneDueno(l)) return false;
+      if (vista === 'ASIGNADOS' && !tieneDueno(l)) return false;
       if (sectorElegido !== null && l.sector_id !== sectorElegido) return false;
       if (!q) return true;
       const codigo = String(l.codigo || '').toLowerCase();
