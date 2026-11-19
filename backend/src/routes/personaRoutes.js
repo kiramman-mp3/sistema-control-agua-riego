@@ -57,10 +57,20 @@ router.get('/cuentas-bloqueadas', ...soloAdmin, personaController.getCuentasBloq
  *     tags: [Usuarios (Personas)]
  *     summary: Actualizar datos personales
  *     security: [{ bearerAuth: [] }]
+ *   delete:
+ *     tags: [Usuarios (Personas)]
+ *     summary: Eliminar un usuario. Sin historial se borra; con historial se oculta del padrón (sin lotes, sectores ni deudas pendientes).
+ *     security: [{ bearerAuth: [] }]
+ * /personas/{id}/restaurar:
+ *   post:
+ *     tags: [Usuarios (Personas)]
+ *     summary: Devuelve al padrón a un usuario oculto
+ *     security: [{ bearerAuth: [] }]
  */
 router.get('/:id', verificarToken, personaController.getPersonaById);
 router.put('/:id', ...soloAdmin, personaController.updatePersona);
 router.delete('/:id', ...soloAdmin, personaController.deletePersona);
+router.post('/:id/restaurar', ...soloAdmin, personaController.restaurarPersona);
 
 /**
  * @openapi

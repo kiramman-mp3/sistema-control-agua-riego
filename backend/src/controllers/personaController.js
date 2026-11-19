@@ -27,7 +27,9 @@ const rolCodigo = z.enum([ROLES.ADMIN, ROLES.TESORERO, ROLES.USUARIO]);
 const listarSchema = s.paginacion.extend({
   busqueda: z.string().trim().max(100).optional(),
   estado: z.enum(['ACTIVO', 'INACTIVO']).optional(),
-  sector_id: s.id.optional()
+  sector_id: s.id.optional(),
+  // Por defecto el padrón no muestra a los usuarios eliminados (ocultos); `solo` lista únicamente a esos.
+  ocultos: z.enum(['solo']).optional()
 });
 
 const crearSchema = z.object({
@@ -98,12 +100,23 @@ async function cuentaDePersona(conexion, personaId, { bloquear = false } = {}) {
   return rows[0] || null;
 }
 
+/** Conflicto por cédula repetida; si la tiene un usuario oculto, indica que debe restaurarlo en vez de registrarlo de nuevo. */
+function cedulaOcupada(existente, cedula, quien) {
+  if (existente.oculta_en) {
+    return conflict(
+      `La cédula ${cedula} pertenece a un usuario eliminado (oculto). Restáurelo desde "Ver eliminados" en vez de registrarlo de nuevo.`,
+      { codigo: 'PERSONA_OCULTA', personaId: existente.id }
+    );
+  }
+  return conflict(`Ya existe ${quien} con la cédula ${cedula}.`);
+}
+
 /** Listar y buscar usuarios (directiva) con filtro por sector geográfico. */
 async function getPersonas(req, res) {
-  const { busqueda, estado, sector_id, page, limit } = listarSchema.parse(req.query);
+  const { busqueda, estado, sector_id, ocultos, page, limit } = listarSchema.parse(req.query);
   const offset = (page - 1) * limit;
 
-  let where = ' WHERE 1=1';
+  let where = ocultos === 'solo' ? ' WHERE p.oculta_en IS NOT NULL' : ' WHERE p.oculta_en IS NULL';
   const params = [];
   if (estado) {
     where += ' AND p.estado = ?';
@@ -121,7 +134,7 @@ async function getPersonas(req, res) {
 
   const [personas] = await db.query(
     `SELECT p.id, p.cedula, p.nombres, p.apellidos, p.direccion, p.telefono, p.celular, p.email, p.fecha_nacimiento,
-            p.estado, p.created_at,
+            p.estado, p.created_at, p.oculta_en,
             (SELECT COUNT(*) FROM persona_lotes pl WHERE pl.persona_id = p.id) AS lotes_count,
             (SELECT GROUP_CONCAT(DISTINCT s.nombre ORDER BY s.nombre SEPARATOR ', ')
              FROM persona_lotes pl
@@ -326,8 +339,8 @@ async function createPersona(req, res) {
   const datos = crearSchema.parse(req.body);
 
   const resultado = await withTransaction(async (conexion) => {
-    const [existe] = await conexion.query('SELECT id FROM personas WHERE cedula = ?', [datos.cedula]);
-    if (existe.length) throw conflict(`Ya existe un usuario registrado con la cédula ${datos.cedula}.`);
+    const [existe] = await conexion.query('SELECT id, oculta_en FROM personas WHERE cedula = ?', [datos.cedula]);
+    if (existe.length) throw cedulaOcupada(existe[0], datos.cedula, 'un usuario registrado');
 
     const [insert] = await conexion.query(
       `INSERT INTO personas (cedula, nombres, apellidos, direccion, telefono, celular, email, fecha_nacimiento)
@@ -359,17 +372,18 @@ async function updatePersona(req, res) {
   const datos = actualizarSchema.parse(req.body);
 
   await withTransaction(async (conexion) => {
-    const [personaRows] = await conexion.query('SELECT id, cedula, estado FROM personas WHERE id = ? FOR UPDATE', [id]);
+    const [personaRows] = await conexion.query('SELECT id, cedula, estado, oculta_en FROM personas WHERE id = ? FOR UPDATE', [id]);
     if (!personaRows.length) throw notFound('Usuario no encontrado.');
     const personaActual = personaRows[0];
+    if (personaActual.oculta_en) throw conflict('El usuario está eliminado (oculto). Restáurelo para poder modificarlo.', { codigo: 'PERSONA_OCULTA', personaId: id });
     const estadoActual = personaActual.estado;
     const nuevoEstado = datos.estado ?? estadoActual;
     const nuevaCedula = datos.cedula ? datos.cedula.trim() : personaActual.cedula;
 
     if (nuevaCedula !== personaActual.cedula) {
-      const [existeCedula] = await conexion.query('SELECT id FROM personas WHERE cedula = ? AND id <> ?', [nuevaCedula, id]);
+      const [existeCedula] = await conexion.query('SELECT id, oculta_en FROM personas WHERE cedula = ? AND id <> ?', [nuevaCedula, id]);
       if (existeCedula.length) {
-        throw conflict(`Ya existe otro usuario registrado con la cédula ${nuevaCedula}.`);
+        throw cedulaOcupada(existeCedula[0], nuevaCedula, 'otro usuario registrado');
       }
     }
 
@@ -405,10 +419,10 @@ async function updatePersona(req, res) {
 }
 
 /**
- * Eliminación física de una persona erróneamente registrada.
- * Por estricta regla institucional, solo se permite si NO tiene ningún historial
- * (0 lotes, 0 obligaciones emitidas, 0 asistencias a eventos, 0 sectores representados).
- * Si tiene historial, se rechaza y se exige baja lógica (estado = INACTIVO).
+ * Eliminar un usuario. Sin historial (0 lotes, obligaciones, pagos, asistencias ni sectores representados) se borra
+ * de verdad junto con su cuenta. Con historial no se borra: se oculta del padrón (queda inactivo y marcado con
+ * `oculta_en`) y se puede restaurar. Para ocultarlo no debe tener lotes, sectores a su cargo ni deudas pendientes:
+ * hay que transferirlos o cobrarlos antes, así ningún lote queda con un titular invisible.
  */
 async function deletePersona(req, res) {
   const { id } = s.idParam.parse(req.params);
@@ -416,40 +430,80 @@ async function deletePersona(req, res) {
     throw forbidden('No puede eliminar su propio registro.');
   }
 
-  await withTransaction(async (conexion) => {
-    const [personaRows] = await conexion.query('SELECT id, cedula, nombres, apellidos FROM personas WHERE id = ? FOR UPDATE', [id]);
+  const resultado = await withTransaction(async (conexion) => {
+    const [personaRows] = await conexion.query('SELECT id, cedula, nombres, apellidos, oculta_en FROM personas WHERE id = ? FOR UPDATE', [id]);
     if (!personaRows.length) throw notFound('Usuario no encontrado.');
     const persona = personaRows[0];
-    const cuentaDePersonaEliminada = await cuentaDePersona(conexion, id, { bloquear: true });
-    if (cuentaDePersonaEliminada) await exigirPermisoSobreTesorero(conexion, req.user, { cuenta: cuentaDePersonaEliminada });
+    if (persona.oculta_en) throw conflict('El usuario ya está eliminado (oculto).');
+    const cuenta = await cuentaDePersona(conexion, id, { bloquear: true });
+    if (cuenta) await exigirPermisoSobreTesorero(conexion, req.user, { cuenta });
 
-    const [[{ lotesCount }]] = await conexion.query('SELECT COUNT(*) AS lotesCount FROM persona_lotes WHERE persona_id = ?', [id]);
-    const [[{ obligCount }]] = await conexion.query('SELECT COUNT(*) AS obligCount FROM obligaciones WHERE persona_id = ?', [id]);
-    const [[{ obligAguaCount }]] = await conexion.query('SELECT COUNT(*) AS obligAguaCount FROM obligacion_anual_agua WHERE persona_id = ?', [id]);
-    const [[{ asistenciasCount }]] = await conexion.query('SELECT COUNT(*) AS asistenciasCount FROM asistencias WHERE persona_id = ?', [id]);
-    const [[{ sectoresCount }]] = await conexion.query('SELECT COUNT(*) AS sectoresCount FROM sectores WHERE representante_persona_id = ?', [id]);
-    const [[{ pagosCount }]] = await conexion.query('SELECT COUNT(*) AS pagosCount FROM pagos WHERE persona_id = ?', [id]);
+    const contar = async (sql) => Number((await conexion.query(sql, [id]))[0][0].n);
+    const lotes = await contar('SELECT COUNT(*) AS n FROM persona_lotes WHERE persona_id = ?');
+    const obligaciones = await contar('SELECT COUNT(*) AS n FROM obligaciones WHERE persona_id = ?');
+    const obligacionesAgua = await contar('SELECT COUNT(*) AS n FROM obligacion_anual_agua WHERE persona_id = ?');
+    const asistencias = await contar('SELECT COUNT(*) AS n FROM asistencias WHERE persona_id = ?');
+    const sectores = await contar('SELECT COUNT(*) AS n FROM sectores WHERE representante_persona_id = ?');
+    const pagos = await contar('SELECT COUNT(*) AS n FROM pagos WHERE persona_id = ?');
+    const sinHistorial = lotes + obligaciones + obligacionesAgua + asistencias + sectores + pagos === 0;
 
-    const totalVinculos = Number(lotesCount) + Number(obligCount) + Number(obligAguaCount) + Number(asistenciasCount) + Number(sectoresCount) + Number(pagosCount);
-
-    if (totalVinculos > 0) {
-      throw conflict(
-        `No se puede eliminar físicamente al usuario porque registra historial activo ` +
-        `(${lotesCount} lotes, ${Number(obligCount) + Number(obligAguaCount)} obligaciones, ${asistenciasCount} asistencias, ${sectoresCount} sectores que representa). ` +
-        `Para preservar la trazabilidad institucional de la Junta, cambie su estado a INACTIVO.`
-      );
+    if (sinHistorial) {
+      await conexion.query('DELETE FROM cuentas WHERE persona_id = ?', [id]);
+      await conexion.query('DELETE FROM personas WHERE id = ?', [id]);
+      await registrarAuditoria({
+        conexion, cuentaId: req.user.cuentaId, accion: 'ELIMINAR', entidad: 'personas', entidadId: id, ip: req.ip,
+        detalle: { cedula: persona.cedula, nombres: `${persona.nombres} ${persona.apellidos}` }
+      });
+      return { accion: 'ELIMINADO', message: 'Usuario eliminado exitosamente del padrón.' };
     }
 
-    await conexion.query('DELETE FROM cuentas WHERE persona_id = ?', [id]);
-    await conexion.query('DELETE FROM personas WHERE id = ?', [id]);
+    const pendientes = (await contar("SELECT COUNT(*) AS n FROM obligaciones WHERE persona_id = ? AND estado = 'PENDIENTE'"))
+      + (await contar("SELECT COUNT(*) AS n FROM obligacion_anual_agua WHERE persona_id = ? AND estado = 'PENDIENTE'"));
+    const impedimentos = [];
+    if (lotes) impedimentos.push(`${lotes} lote(s) asignado(s): transfiéralos a otra persona`);
+    if (sectores) impedimentos.push(`${sectores} sector(es) que representa: designe otro representante`);
+    if (pendientes) impedimentos.push(`${pendientes} deuda(s) pendiente(s): cóbrelas o anúlelas`);
+    if (impedimentos.length) {
+      throw conflict(`No se puede eliminar a ${persona.nombres} ${persona.apellidos} todavía. Antes: ${impedimentos.join('; ')}.`);
+    }
 
+    if (cuenta && ROLES_DIRECTIVA.includes(cuenta.rol) && cuenta.estado === 'ACTIVA') {
+      await exigirOtroAdministrador(conexion, id, 'No se puede eliminar a la persona porque es el último administrador activo.');
+    }
+    await conexion.query(
+      "UPDATE personas SET estado = 'INACTIVO', oculta_en = NOW(), oculta_por_cuenta_id = ? WHERE id = ?",
+      [req.user.cuentaId, id]
+    );
     await registrarAuditoria({
-      conexion, cuentaId: req.user.cuentaId, accion: 'ELIMINAR', entidad: 'personas', entidadId: id, ip: req.ip,
+      conexion, cuentaId: req.user.cuentaId, accion: 'OCULTAR', entidad: 'personas', entidadId: id, ip: req.ip,
+      detalle: { cedula: persona.cedula, nombres: `${persona.nombres} ${persona.apellidos}` }
+    });
+    return {
+      accion: 'OCULTADO',
+      message: 'El usuario tiene historial, por eso no se borró: quedó oculto del padrón. Puede restaurarlo desde "Ver eliminados".'
+    };
+  });
+
+  return res.json({ status: 'OK', ...resultado });
+}
+
+/** Devuelve al padrón a un usuario oculto: queda activo otra vez, con su historial intacto. */
+async function restaurarPersona(req, res) {
+  const { id } = s.idParam.parse(req.params);
+  await withTransaction(async (conexion) => {
+    const [personaRows] = await conexion.query('SELECT id, cedula, nombres, apellidos, oculta_en FROM personas WHERE id = ? FOR UPDATE', [id]);
+    if (!personaRows.length) throw notFound('Usuario no encontrado.');
+    const persona = personaRows[0];
+    if (!persona.oculta_en) throw conflict('El usuario no está eliminado.');
+    const cuenta = await cuentaDePersona(conexion, id, { bloquear: true });
+    if (cuenta) await exigirPermisoSobreTesorero(conexion, req.user, { cuenta });
+    await conexion.query("UPDATE personas SET estado = 'ACTIVO', oculta_en = NULL, oculta_por_cuenta_id = NULL WHERE id = ?", [id]);
+    await registrarAuditoria({
+      conexion, cuentaId: req.user.cuentaId, accion: 'RESTAURAR', entidad: 'personas', entidadId: id, ip: req.ip,
       detalle: { cedula: persona.cedula, nombres: `${persona.nombres} ${persona.apellidos}` }
     });
   });
-
-  return res.json({ status: 'OK', message: 'Usuario eliminado exitosamente del padrón.' });
+  return res.json({ status: 'OK', message: 'Usuario restaurado en el padrón.' });
 }
 
 /** Crear la cuenta de acceso de un usuario que aún no la tiene. */
@@ -557,6 +611,7 @@ module.exports = {
   createPersona,
   updatePersona,
   deletePersona,
+  restaurarPersona,
   crearCuenta,
   actualizarCuenta,
   restablecerPassword, getCuentasBloqueadas, desbloquearCuenta
