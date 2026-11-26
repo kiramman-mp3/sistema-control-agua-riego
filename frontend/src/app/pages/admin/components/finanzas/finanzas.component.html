@@ -98,8 +98,14 @@
       @case ('egresos') {
         <app-egresos [abrirNuevo]="abrirEgreso()" (registrado)="onDatosCambiados()" />
       }
+      @case ('caja-previa') {
+        <app-caja-previa (cambiado)="onDatosCambiados()" />
+      }
       @case ('historial') {
         <app-historial-financiero />
+      }
+      @case ('deudores') {
+        <app-deudores />
       }
       @case ('facturacion') {
         <app-facturacion-anual (emitido)="onDatosCambiados()" />

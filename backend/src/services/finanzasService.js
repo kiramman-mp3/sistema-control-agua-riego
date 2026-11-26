@@ -3,8 +3,33 @@
  * tarifas vigentes y el pago anual de agua. Reciben una conexión en transacción.
  */
 const { badRequest, notFound, conflict } = require('../shared/errors');
+const { hoy } = require('../shared/dates');
 
 const redondear = (n) => Math.round(Number(n) * 100) / 100;
+
+/** Recargo del pago anual de agua cuando se paga después del 31 de marzo del año de la cuota: 10%, una sola vez. */
+const RECARGO_AGUA = 0.1;
+/** Último día (mes-día) para pagar la cuota anual del agua sin recargo. */
+const LIMITE_SIN_RECARGO = '03-31';
+
+/** Último día para pagar sin recargo la cuota del agua de un año: 'YYYY-03-31'. */
+const limiteSinRecargo = (anio) => `${anio}-${LIMITE_SIN_RECARGO}`;
+
+/**
+ * Recargo de una cuota anual de agua pagada en `fecha` ('YYYY-MM-DD'): el 10% del valor base si la fecha es posterior
+ * al 31 de marzo del año de la cuota; 0 en caso contrario. Es una regla de la fecha de pago, no un dato guardado:
+ * una cuota de un año anterior siempre lleva el recargo.
+ */
+function recargoAgua(anio, valorBase, fecha = hoy()) {
+  return fecha > limiteSinRecargo(anio) ? redondear(Number(valorBase) * RECARGO_AGUA) : 0;
+}
+
+/**
+ * Fragmento SQL del recargo de una fila pendiente de obligacion_anual_agua. Lleva un parámetro: la fecha de hoy.
+ * @param {string} alias alias de la tabla obligacion_anual_agua en la consulta
+ */
+const sqlRecargoAgua = (alias = 'o') =>
+  `IF(? > CONCAT(${alias}.periodo_anio, '-${LIMITE_SIN_RECARGO}'), ROUND(${alias}.valor_total * ${RECARGO_AGUA}, 2), 0)`;
 
 /** Plazo para pagar una multa o un cobro manual sin fecha de vencimiento propia. */
 const DIAS_PARA_VENCER = 30;
@@ -149,12 +174,15 @@ async function anularObligacion(conexion, { obligacionId, motivo, cuentaId }) {
   );
 }
 
-/** Registra un egreso de caja. */
-async function registrarEgreso(conexion, datos, cuentaId) {
+/**
+ * Registra un egreso de caja. `archivoUrl` es la evidencia (factura, imagen o PDF) ya guardada en disco;
+ * la API la exige, el servicio la admite vacía para los datos de demostración.
+ */
+async function registrarEgreso(conexion, datos, cuentaId, archivoUrl = null) {
   const [r] = await conexion.query(
-    `INSERT INTO egresos (proveedor, ruc_proveedor, fecha, concepto, descripcion, numero_factura, valor, registrado_por_cuenta_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [datos.proveedor, datos.ruc_proveedor, datos.fecha, datos.concepto, datos.descripcion, datos.numero_factura, datos.valor, cuentaId]
+    `INSERT INTO egresos (proveedor, ruc_proveedor, fecha, concepto, descripcion, numero_factura, archivo_factura, valor, registrado_por_cuenta_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [datos.proveedor, datos.ruc_proveedor, datos.fecha, datos.concepto, datos.descripcion, datos.numero_factura, archivoUrl, datos.valor, cuentaId]
   );
   return r.insertId;
 }
@@ -255,7 +283,7 @@ async function generarObligacionesAnualesAgua(conexion, { anio, valorHectarea = 
   const emision = fechaEmision ?? `${anio}-01-01`;
   await conexion.query(
     `INSERT INTO obligacion_anual_agua (persona_id, lote_id, periodo_anio, valor_total, valor_hectarea, superficie_m2, estado, fecha_emision, fecha_vencimiento) VALUES ?`,
-    [lotes.map((l) => [l.persona_id, l.lote_id, anio, l.valor, valor, l.superficie_m2, 'PENDIENTE', emision, `${anio}-12-31`])]
+    [lotes.map((l) => [l.persona_id, l.lote_id, anio, l.valor, valor, l.superficie_m2, 'PENDIENTE', emision, limiteSinRecargo(anio)])]
   );
   return resultado;
 }
@@ -370,8 +398,11 @@ async function resumenAnualAgua(conexion, anio) {
   };
 }
 
-/** Obligaciones anuales de agua sin pagar de un usuario, con desglose de lote. */
-async function obligacionesAnualesPendientes(conexion, personaId) {
+/**
+ * Obligaciones anuales de agua sin pagar de un usuario, con desglose de lote. `valor_total` es el valor base;
+ * `recargo` es el 10% si `fecha` es posterior al 31 de marzo de su año y `total_a_cobrar` la suma de ambos.
+ */
+async function obligacionesAnualesPendientes(conexion, personaId, fecha = hoy()) {
   const [personas] = await conexion.query('SELECT id FROM personas WHERE id = ?', [personaId]);
   if (!personas.length) throw notFound('El usuario no existe.');
   const [filas] = await conexion.query(
@@ -384,17 +415,20 @@ async function obligacionesAnualesPendientes(conexion, personaId) {
      ORDER BY o.periodo_anio ASC, l.codigo ASC`,
     [personaId]
   );
-  return filas.map((f) => ({ ...f, valor_total: Number(f.valor_total) }));
+  return filas.map((f) => {
+    const recargo = recargoAgua(f.periodo_anio, f.valor_total, fecha);
+    return { ...f, valor_total: Number(f.valor_total), recargo, total_a_cobrar: redondear(Number(f.valor_total) + recargo) };
+  });
 }
 
 /**
  * Registra el pago de una o varias obligaciones anuales de agua pendientes del mismo usuario.
- * @returns {{ pagoId: number, valorTotal: number, actualizados: number }}
+ * @returns {{ pagoId: number, valorTotal: number, recargo: number, actualizados: number }}
  */
 async function registrarPagoAnualAgua(conexion, { personaId, obligacionesIds, metodo = 'TRANSFERENCIA', referencia = null, observacion = null, cuentaId, fechaPago = null, comprobanteUrl = null }) {
   const ids = [...new Set(obligacionesIds.map(Number))];
   const [obligaciones] = await conexion.query(
-    'SELECT id, persona_id, valor_total, estado FROM obligacion_anual_agua WHERE id IN (?) FOR UPDATE',
+    'SELECT id, persona_id, periodo_anio, valor_total, estado FROM obligacion_anual_agua WHERE id IN (?) FOR UPDATE',
     [ids]
   );
   if (obligaciones.length !== ids.length) throw badRequest('Una o más obligaciones anuales seleccionadas no existen.');
@@ -408,7 +442,14 @@ async function registrarPagoAnualAgua(conexion, { personaId, obligacionesIds, me
     }
   }
 
-  const valorTotal = redondear(obligaciones.reduce((suma, ob) => suma + Number(ob.valor_total), 0));
+  // El recargo depende del día en que se paga (el de Ecuador), no de cuándo se emitió la cuota.
+  const diaDelPago = hoy(fechaPago ? new Date(fechaPago) : new Date());
+  const lineas = obligaciones.map((ob) => {
+    const recargo = recargoAgua(ob.periodo_anio, ob.valor_total, diaDelPago);
+    return { id: ob.id, recargo, pagado: redondear(Number(ob.valor_total) + recargo) };
+  });
+  const valorTotal = redondear(lineas.reduce((suma, l) => suma + l.pagado, 0));
+  const recargoTotal = redondear(lineas.reduce((suma, l) => suma + l.recargo, 0));
   const [pago] = await conexion.query(
     `INSERT INTO pago_anual_agua (persona_id, valor_total, metodo, referencia, observacion, fecha_pago, registrado_por_cuenta_id, comprobante_url)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -416,10 +457,10 @@ async function registrarPagoAnualAgua(conexion, { personaId, obligacionesIds, me
   );
   await conexion.query("UPDATE obligacion_anual_agua SET estado = 'PAGADA' WHERE id IN (?)", [ids]);
   await conexion.query(
-    'INSERT INTO pago_anual_agua_detalle (pago_anual_agua_id, obligacion_anual_agua, valor_pagado) VALUES ?',
-    [obligaciones.map((ob) => [pago.insertId, ob.id, ob.valor_total])]
+    'INSERT INTO pago_anual_agua_detalle (pago_anual_agua_id, obligacion_anual_agua, valor_pagado, recargo) VALUES ?',
+    [lineas.map((l) => [pago.insertId, l.id, l.pagado, l.recargo])]
   );
-  return { pagoId: pago.insertId, valorTotal, actualizados: ids.length };
+  return { pagoId: pago.insertId, valorTotal, recargo: recargoTotal, actualizados: ids.length };
 }
 
 /** Anula un pago anual de agua vigente y devuelve sus obligaciones a PENDIENTE; conserva el detalle como historial. */
@@ -468,6 +509,7 @@ async function anularObligacionAnualAgua(conexion, { obligacionId, motivo, cuent
 
 module.exports = {
   crearObligacionManual, anularObligacion, registrarEgreso, anularEgreso, DIAS_PARA_VENCER, vencimientoPorDefecto,
+  RECARGO_AGUA, limiteSinRecargo, recargoAgua, sqlRecargoAgua, valorHectareaAgua,
   redondear, conceptoPorCodigo, tarifaVigente, registrarTarifa, registrarPago, anularPago,
   generarObligacionesAnualesAgua, recalcularCuotasPendientesDeLote, deudaAnualPendienteDeLote, transferirDeudaAnualDeLote, valorAnualPorPersona, cuotaAnualDeLote, hectareasDeLote, resumenAnualAgua, obligacionesAnualesPendientes, registrarPagoAnualAgua,
   anularPagoAnualAgua, anularObligacionAnualAgua

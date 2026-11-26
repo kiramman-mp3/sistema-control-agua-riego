@@ -91,8 +91,38 @@ const generarAnualAguaSchema = z.object({
 });
 const resumenAnualAguaQuery = z.object({ anio: anio.optional() });
 
+/** Un valor de histórico: cero (anula lo pendiente) o un importe con dos decimales. */
+const valorHistorico = s.dineroCon((n) => n.min(0, 'El valor no puede ser negativo.').max(1000000));
+const mesDelAnio = z.string().regex(/^(1[0-2]|[1-9])$/, 'Mes inválido (1 a 12).');
+const multasHistoricas = z.object({
+  anterior: valorHistorico.optional(),
+  meses: z.record(mesDelAnio, valorHistorico).optional()
+});
+
+/**
+ * Histórico (papel) de un usuario: cada lote del año se marca como debe o pagada; el agua y las multas de años
+ * anteriores van como un acumulado; las multas del año en curso, por mes. Lo que no se envía no se modifica.
+ */
+const historicoSchema = z.object({
+  anio: anio.optional(),
+  valor_hectarea: z.preprocess((v) => (v === '' || v === null ? undefined : v), s.montoPositivo.optional()),
+  lotes: z.array(z.object({ lote_id: s.id, estado: z.enum(['DEBE', 'PAGADA']) })).max(100).default([]),
+  agua_anterior: valorHistorico.optional(),
+  multas_asamblea: multasHistoricas.optional(),
+  multas_minga: multasHistoricas.optional()
+});
+const historicoQuery = z.object({ anio: anio.optional() });
+
+const ingresoPrevioSchema = z.object({
+  fecha: s.fecha
+    .refine((f) => f >= FECHA_MINIMA_EGRESO, 'La fecha no puede ser anterior al año 2000.')
+    .refine((f) => f <= hoy(), 'La fecha no puede ser futura.'),
+  valor: s.montoPositivo,
+  descripcion: z.string({ error: 'Describa el origen del valor.' }).trim().min(5, 'Describa el origen del valor (mínimo 5 caracteres).').max(255)
+});
+
 module.exports = {
   ESTADOS_OBLIGACION, METODOS, obligacionesQuery, porCedulaQuery, tarifaSchema, obligacionSchema, pagoSchema,
   motivoSchema, rangoFechas, egresosQuery, pagosQuery, egresoSchema,
-  personaIdParam, generarAnualAguaSchema, resumenAnualAguaQuery
+  personaIdParam, generarAnualAguaSchema, resumenAnualAguaQuery, historicoSchema, historicoQuery, ingresoPrevioSchema
 };

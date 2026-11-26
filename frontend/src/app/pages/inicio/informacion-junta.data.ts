@@ -27,16 +27,13 @@ export const ATENCION_JUNTA = 'Sábados de 08:00 a 12:00';
 export const TELEFONO_JUNTA = '098 355 3457';
 export const CORREO_JUNTA = 'juntalajones@gmail.com';
 
-/**
- * Cuenta para el pago por transferencia. DATOS SUPUESTOS: banco, número de cuenta, titular y RUC son de
- * ejemplo y deben confirmarse con la tesorería de la Junta antes de publicarse (ver docs/OBSERVACIONES.md).
- */
+/** Cuenta para el pago por transferencia, confirmada por la directiva de la Junta. */
 export const CUENTA_BANCARIA_JUNTA = {
-  banco: 'Banco del Pichincha',
+  banco: 'Cooperativa de Ahorro y Crédito OSCUS Ltda.',
   tipo: 'Cuenta de Ahorros',
-  numero: '2200112233',
+  numero: '004619599711',
   titular: 'Junta de Agua La Jones',
-  ruc: '1890123456001',
+  ruc: '1891793800001',
 };
 
 export const INFORMACION_JUNTA = {

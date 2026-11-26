@@ -130,8 +130,15 @@ Los endpoints protegidos requieren autenticación mediante **JSON Web Tokens (JW
 | `GET` | `/financiero/agua-anual/obligaciones/:personaId` | TESORERO | Obligaciones anuales de agua pendientes de un usuario, de la más antigua a la más reciente. |
 | `POST` | `/financiero/agua-anual/pagos` | TESORERO | Registra el pago (solo `TRANSFERENCIA` o `DEPOSITO`, con referencia) de una o varias obligaciones anuales de agua en una transacción atómica. |
 | `GET` | `/financiero/egresos` | TESORERO | Gastos y compras realizadas por la Junta. |
-| `POST` | `/financiero/egresos` | TESORERO | Registrar gasto o compra con número de factura. |
+| `POST` | `/financiero/egresos` | TESORERO | Registrar gasto o compra (`multipart/form-data`). La **evidencia** (`archivo`: PDF, JPG o PNG, hasta 10 MB) es obligatoria; se valida por contenido. |
+| `POST` | `/financiero/egresos/:id/evidencia` | TESORERO | Adjunta o reemplaza la evidencia de un egreso vigente. |
+| `GET` | `/financiero/egresos/:id/evidencia` | TESORERO | Descarga la evidencia. La lista de egresos no expone la ruta: devuelve `tiene_evidencia`. |
 | `POST` | `/financiero/egresos/:id/anular` | TESORERO | Anula un egreso con motivo obligatorio y deja registro de auditoría (migración 028). |
+| `GET` | `/financiero/historico/:personaId` | TESORERO | Estado de lo registrado en papel de un usuario: lotes con su cuota del año, acumulado de años anteriores y multas por mes. |
+| `PUT` | `/financiero/historico/:personaId` | TESORERO | Guarda el histórico (idempotente): `valor_hectarea`, `lotes[{lote_id, estado: DEBE|PAGADA}]`, `agua_anterior`, `multas_asamblea` y `multas_minga` (`anterior` y `meses`). Una cuota pagada en papel queda `PAGADA` con `pagada_antes_sistema` y sin recibo ni ingreso. Un campo vacío no cambia nada y `0` quita lo pendiente. `409` si lo ya cobrado en caja o la cuota ya tiene recibo. |
+| `GET` | `/financiero/deudores` | TESORERO | Deudores del agua (con recargo) y de las multas: `resumen` y `deudores[]` con el año en curso desglosado y los años anteriores en un solo valor. |
+| `GET` `POST` | `/financiero/ingresos-previos` | TESORERO | Caja previa al sistema: lista y registro (`fecha`, `valor`, `descripcion`). Suma al balance, al historial y al panel. |
+| `POST` | `/financiero/ingresos-previos/:id/anular` | TESORERO | Anula un registro con motivo obligatorio. |
 | `GET` | `/financiero/balance` | TESORERO | **Reporte de Balance General Al Día:** Suma de Total Ingresos (pagos y pagos anuales de agua) - Total Egresos, con la cartera pendiente de ambos. |
 
 ---

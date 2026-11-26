@@ -1,5 +1,6 @@
 const express = require('express');
 const financieroController = require('../controllers/financieroController');
+const historicoController = require('../controllers/historicoController');
 const comprobantes = require('../controllers/pagoComprobanteController');
 const { recibirArchivo } = require('../services/documentStorage');
 const { verificarToken, soloTesorero } = require('../middlewares/authMiddleware');
@@ -130,7 +131,9 @@ router.post('/pagos/:id/anular', ...soloTesorero, financieroController.anularPag
  *     security: [{ bearerAuth: [] }]
  */
 router.get('/egresos', ...soloTesorero, financieroController.getEgresos);
-router.post('/egresos', ...soloTesorero, financieroController.createEgreso);
+router.post('/egresos', ...soloTesorero, recibirArchivo, financieroController.createEgreso);
+router.post('/egresos/:id/evidencia', ...soloTesorero, recibirArchivo, financieroController.subirEvidenciaEgreso);
+router.get('/egresos/:id/evidencia', ...soloTesorero, financieroController.descargarEvidenciaEgreso);
 router.post('/egresos/:id/anular', ...soloTesorero, financieroController.anularEgreso);
 router.get('/balance', ...soloTesorero, financieroController.getBalanceReport);
 router.get('/historial', ...soloTesorero, financieroController.getHistorialAnual);
@@ -202,5 +205,43 @@ router.get('/agua-anual/pagos', verificarToken, financieroController.getPagosAnu
 router.get('/agua-anual/pagos/:id', verificarToken, financieroController.getPagoAnualAguaById);
 router.post('/agua-anual/pagos', ...soloTesorero, recibirArchivo, financieroController.registrarPagoAnualAgua);
 router.post('/agua-anual/pagos/:id/anular', ...soloTesorero, financieroController.anularPagoAnualAgua);
+
+/**
+ * @openapi
+ * /financiero/historico/{personaId}:
+ *   get:
+ *     tags: [Gestión Financiera]
+ *     summary: Estado del histórico (datos en papel) de un usuario para el año indicado (TESORERO)
+ *     security: [{ bearerAuth: [] }]
+ *   put:
+ *     tags: [Gestión Financiera]
+ *     summary: Guardar el histórico de un usuario. Cada lote del año se marca DEBE o PAGADA (pagada en papel, sin recibo ni ingreso); el agua y las multas de años anteriores van como un acumulado; las multas del año en curso, por mes (TESORERO)
+ *     security: [{ bearerAuth: [] }]
+ * /financiero/deudores:
+ *   get:
+ *     tags: [Gestión Financiera]
+ *     summary: Deudores del agua (con recargo del 10% después del 31 de marzo) y de las multas de asambleas y mingas, con resumen y detalle (TESORERO)
+ *     security: [{ bearerAuth: [] }]
+ * /financiero/ingresos-previos:
+ *   get:
+ *     tags: [Gestión Financiera]
+ *     summary: Caja previa al sistema (totales anotados aparte de los pagos) (TESORERO)
+ *     security: [{ bearerAuth: [] }]
+ *   post:
+ *     tags: [Gestión Financiera]
+ *     summary: Registrar el total de caja que la Junta ya tenía antes del sistema (TESORERO)
+ *     security: [{ bearerAuth: [] }]
+ * /financiero/ingresos-previos/{id}/anular:
+ *   post:
+ *     tags: [Gestión Financiera]
+ *     summary: Anular un registro de caja previa (TESORERO)
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/historico/:personaId', ...soloTesorero, historicoController.getHistorico);
+router.put('/historico/:personaId', ...soloTesorero, historicoController.guardarHistorico);
+router.get('/deudores', ...soloTesorero, historicoController.getDeudores);
+router.get('/ingresos-previos', ...soloTesorero, historicoController.getIngresosPrevios);
+router.post('/ingresos-previos', ...soloTesorero, historicoController.createIngresoPrevio);
+router.post('/ingresos-previos/:id/anular', ...soloTesorero, historicoController.anularIngresoPrevio);
 
 module.exports = router;

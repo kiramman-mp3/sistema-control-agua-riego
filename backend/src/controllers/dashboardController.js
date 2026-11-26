@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { hoy, inicioDelDiaUtc } = require('../shared/dates');
 const { esTesorero } = require('../shared/roles');
+const { sqlRecargoAgua } = require('../services/finanzasService');
 
 /**
  * Indicadores del panel de administración, calculados con datos reales.
@@ -27,26 +28,29 @@ async function getResumen(req, res) {
     [[finanzas]] = await db.query(
       `SELECT
          (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
-           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) AS recaudadoMes,
+           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
+           (SELECT COALESCE(SUM(valor), 0) FROM ingresos_previos WHERE estado = 'VIGENTE' AND fecha >= ?) AS recaudadoMes,
          (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
-           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) AS recaudadoAnio,
+           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ?) +
+           (SELECT COALESCE(SUM(valor), 0) FROM ingresos_previos WHERE estado = 'VIGENTE' AND fecha >= ?) AS recaudadoAnio,
          (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE' AND fecha >= ?) AS egresosMes,
          (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE' AND fecha >= ?) AS egresosAnio,
          (SELECT COALESCE(SUM(valor_total), 0) FROM pagos WHERE estado = 'VIGENTE') +
-           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE') -
+           (SELECT COALESCE(SUM(valor_total), 0) FROM pago_anual_agua WHERE estado = 'VIGENTE') +
+           (SELECT COALESCE(SUM(valor), 0) FROM ingresos_previos WHERE estado = 'VIGENTE') -
            (SELECT COALESCE(SUM(valor), 0) FROM egresos WHERE estado = 'VIGENTE') AS saldoCaja,
          (SELECT COALESCE(SUM(valor), 0) FROM obligaciones WHERE estado = 'PENDIENTE') +
-           (SELECT COALESCE(SUM(valor_total), 0) FROM obligacion_anual_agua WHERE estado = 'PENDIENTE') AS carteraPendiente,
+           (SELECT COALESCE(SUM(o.valor_total + ${sqlRecargoAgua('o')}), 0) FROM obligacion_anual_agua o WHERE o.estado = 'PENDIENTE') AS carteraPendiente,
          (SELECT COALESCE(SUM(valor), 0) FROM obligaciones WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?) +
-           (SELECT COALESCE(SUM(valor_total), 0) FROM obligacion_anual_agua WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?) AS carteraVencida,
+           (SELECT COALESCE(SUM(o.valor_total + ${sqlRecargoAgua('o')}), 0) FROM obligacion_anual_agua o WHERE o.estado = 'PENDIENTE' AND o.fecha_vencimiento < ?) AS carteraVencida,
          (SELECT COUNT(*) FROM (
             SELECT persona_id FROM obligaciones WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?
             UNION
             SELECT persona_id FROM obligacion_anual_agua WHERE estado = 'PENDIENTE' AND fecha_vencimiento < ?
           ) mora) AS usuariosEnMora`,
       // fecha_pago está en UTC: el mes de Ecuador empieza a las 05:00 UTC del día 1.
-      [inicioDelDiaUtc(inicioMes), inicioDelDiaUtc(inicioMes), inicioDelDiaUtc(inicioAnio), inicioDelDiaUtc(inicioAnio),
-        inicioMes, inicioAnio, fecha, fecha, fecha, fecha]
+      [inicioDelDiaUtc(inicioMes), inicioDelDiaUtc(inicioMes), inicioMes, inicioDelDiaUtc(inicioAnio), inicioDelDiaUtc(inicioAnio), inicioAnio,
+        inicioMes, inicioAnio, fecha, fecha, fecha, fecha, fecha, fecha]
     );
 
     // Eficiencia de cobro del pago anual de agua de este año.

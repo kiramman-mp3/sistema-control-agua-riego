@@ -8,7 +8,7 @@ const { conAuditoria } = require('../services/auditService');
 const finanzas = require('../services/finanzasService');
 const consultas = require('../services/finanzasConsultas');
 const { personaFinancieraPermitida } = require('../shared/roles');
-const { badRequest, notFound } = require('../shared/errors');
+const { badRequest, notFound, conflict } = require('../shared/errors');
 const { hoy } = require('../shared/dates');
 const archivos = require('../services/documentStorage');
 const s = require('../shared/schemas');
@@ -118,13 +118,65 @@ async function getEgresos(req, res) {
   return res.json({ status: 'OK', data: await consultas.listarEgresos(db, egresosQuery.parse(req.query)) });
 }
 
+/**
+ * Registrar un egreso. La evidencia (factura, imagen o PDF) es obligatoria y llega en la misma petición
+ * (multipart, campo `archivo`): si el egreso no se guarda, el archivo se borra.
+ */
 async function createEgreso(req, res) {
   const datos = egresoSchema.parse(req.body);
-  const egresoId = await conAuditoria(req, (conexion) => finanzas.registrarEgreso(conexion, datos, req.user.cuentaId), (id) => ({
-    accion: 'CREAR', entidad: 'egresos', entidadId: id,
-    detalle: { concepto: datos.concepto, valor: datos.valor, numero_factura: datos.numero_factura }
-  }));
+  if (!req.file) throw badRequest('Adjunte la evidencia del egreso (factura, imagen o PDF).');
+  const evidencia = await archivos.guardarDocumento(req.file.buffer, 'egreso_evidencia');
+  let egresoId;
+  try {
+    egresoId = await conAuditoria(req, (conexion) => finanzas.registrarEgreso(conexion, datos, req.user.cuentaId, evidencia.url), (id) => ({
+      accion: 'CREAR', entidad: 'egresos', entidadId: id,
+      detalle: { concepto: datos.concepto, valor: datos.valor, numero_factura: datos.numero_factura, evidencia: true }
+    }));
+  } catch (error) {
+    await archivos.eliminarDocumento(evidencia.url);
+    throw error;
+  }
   return res.status(201).json({ status: 'OK', message: 'Egreso registrado exitosamente.', egresoId });
+}
+
+/** Adjuntar o reemplazar la evidencia de un egreso vigente (por ejemplo, los registrados antes de que fuera obligatoria). */
+async function subirEvidenciaEgreso(req, res) {
+  const { id } = s.idParam.parse(req.params);
+  if (!req.file) throw badRequest('Adjunte la evidencia del egreso (factura, imagen o PDF).');
+  const nueva = await archivos.guardarDocumento(req.file.buffer, 'egreso_evidencia');
+  let anterior;
+  try {
+    await conAuditoria(req, async (conexion) => {
+      const [[egreso]] = await conexion.query('SELECT estado, archivo_factura FROM egresos WHERE id = ? FOR UPDATE', [id]);
+      if (!egreso) throw notFound('Egreso no encontrado.');
+      if (egreso.estado !== 'VIGENTE') throw conflict('No se puede modificar la evidencia de un egreso anulado.');
+      anterior = egreso.archivo_factura;
+      await conexion.query('UPDATE egresos SET archivo_factura = ? WHERE id = ?', [nueva.url, id]);
+    }, { accion: 'MODIFICAR', entidad: 'egresos', entidadId: id, detalle: { evidencia: true, reemplazada: false } });
+  } catch (error) {
+    await archivos.eliminarDocumento(nueva.url);
+    throw error;
+  }
+  if (anterior) await archivos.eliminarDocumento(anterior);
+  return res.json({ status: 'OK', message: 'Evidencia del egreso guardada.' });
+}
+
+/** Descargar la evidencia de un egreso (solo tesorería). */
+async function descargarEvidenciaEgreso(req, res) {
+  const { id } = s.idParam.parse(req.params);
+  const [[egreso]] = await db.query('SELECT archivo_factura FROM egresos WHERE id = ?', [id]);
+  const nombre = archivos.nombreDesdeUrl(egreso?.archivo_factura);
+  const ruta = archivos.rutaSegura(nombre);
+  if (!ruta) throw notFound('Este egreso no tiene evidencia adjunta.');
+  res.set({
+    'Content-Type': archivos.mimeDe(nombre),
+    'Content-Disposition': `inline; filename="Egreso_${id}.${nombre.split('.').pop()}"`,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  return res.sendFile(ruta, (error) => {
+    if (error && !res.headersSent) res.status(404).json({ status: 'ERROR', message: 'Archivo no encontrado.' });
+  });
 }
 
 async function anularEgreso(req, res) {
@@ -264,6 +316,8 @@ module.exports = {
   getPagoById,
   getEgresos,
   createEgreso,
+  subirEvidenciaEgreso,
+  descargarEvidenciaEgreso,
   anularEgreso,
   getBalanceReport,
   getHistorialAnual,

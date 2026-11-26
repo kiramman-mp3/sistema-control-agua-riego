@@ -26,6 +26,7 @@ import {
   ComprobantePdfService,
   Comprobante,
   ComprobanteLinea,
+  lineasDeAgua,
 } from '../../../../../core/services/comprobante-pdf.service';
 import { DialogService } from '../../../../../core/services/dialog.service';
 import { NotificationService } from '../../../../../core/services/notification.service';
@@ -42,7 +43,7 @@ import {
   numeroRecibo,
   numeroReciboAgua,
 } from '../../../../../core/models/finanzas';
-import { formatearFecha } from '../../../../../core/utils/fechas';
+import { formatearFecha, hoyEnEcuador } from '../../../../../core/utils/fechas';
 import { ComprobanteBancarioComponent } from '../comprobante-bancario/comprobante-bancario.component';
 import { FechaLocalPipe } from '../../../../../shared/pipes/fecha-local.pipe';
 import { MonedaPipe } from '../../../../../shared/pipes/moneda.pipe';
@@ -73,6 +74,8 @@ export type EstadoSeleccion = 'todas' | 'algunas' | 'ninguna';
 
 const SIN_PERIODO = 'sin-periodo';
 const SIN_MES = 'sin-mes';
+/** Todo lo impago de años que ya terminaron (y los acumulados digitados del papel) se muestra como un solo grupo. */
+const ANTERIORES = 'anteriores';
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
 const sumar = (valores: number[]) => redondear(valores.reduce((s, v) => s + v, 0));
@@ -152,12 +155,17 @@ export class CobroCajaComponent {
   readonly arbol = computed<NodoAnio[]>(() => {
     const anios = new Map<string, NodoAnio>();
     for (const o of this.obligaciones()) {
-      const claveAnio = o.periodo_anio ? String(o.periodo_anio) : SIN_PERIODO;
+      const anterior = esDeAniosAnteriores(o, this.anioActual);
+      const claveAnio = anterior ? ANTERIORES : o.periodo_anio ? String(o.periodo_anio) : SIN_PERIODO;
       let anio = anios.get(claveAnio);
       if (!anio) {
         anio = {
           clave: claveAnio,
-          etiqueta: o.periodo_anio ? String(o.periodo_anio) : 'Sin período',
+          etiqueta: anterior
+            ? 'Años anteriores'
+            : o.periodo_anio
+              ? String(o.periodo_anio)
+              : 'Sin período',
           meses: [],
           total: 0,
           cantidad: 0,
@@ -165,13 +173,21 @@ export class CobroCajaComponent {
         anios.set(claveAnio, anio);
       }
       const numMes =
-        o.periodo_mes && o.periodo_mes >= 1 && o.periodo_mes <= 12 ? o.periodo_mes : null;
-      const claveMes = `${claveAnio}-${numMes ?? SIN_MES}`;
+        !anterior && o.periodo_mes && o.periodo_mes >= 1 && o.periodo_mes <= 12
+          ? o.periodo_mes
+          : null;
+      const claveMes = `${claveAnio}-${anterior ? 'acumulado' : (numMes ?? SIN_MES)}`;
       let mes = anio.meses.find((m) => m.clave === claveMes);
       if (!mes) {
         mes = {
           clave: claveMes,
-          etiqueta: numMes ? MESES[numMes - 1] : o.periodo_anio ? 'Sin mes' : 'Otros rubros',
+          etiqueta: anterior
+            ? 'Deuda pendiente de años anteriores'
+            : numMes
+              ? MESES[numMes - 1]
+              : o.periodo_anio
+                ? 'Sin mes'
+                : 'Otros rubros',
           obligaciones: [],
           subtotal: 0,
         };
@@ -183,13 +199,18 @@ export class CobroCajaComponent {
       anio.cantidad++;
     }
     const numero = (clave: string) =>
-      clave.endsWith(SIN_MES) || clave === SIN_PERIODO
-        ? Number.MAX_SAFE_INTEGER
-        : Number(clave.split('-').pop());
+      clave === ANTERIORES || clave.endsWith('acumulado')
+        ? -1
+        : clave.endsWith(SIN_MES) || clave === SIN_PERIODO
+          ? Number.MAX_SAFE_INTEGER
+          : Number(clave.split('-').pop());
     return [...anios.values()]
       .map((a) => ({ ...a, meses: [...a.meses].sort((x, y) => numero(x.clave) - numero(y.clave)) }))
       .sort((a, b) => numero(a.clave) - numero(b.clave));
   });
+
+  /** Año en curso: lo impago de años anteriores se junta en un solo renglón. */
+  private readonly anioActual = Number(hoyEnEcuador().slice(0, 4));
 
   /** Nodos plegados; por defecto todo está desplegado para que el cajero vea el detalle. */
   readonly plegados = signal<ReadonlySet<string>>(new Set());
@@ -208,13 +229,17 @@ export class CobroCajaComponent {
   );
 
   readonly totalAgua = computed(() =>
-    sumar(this.obligacionesAgua().map((o) => Number(o.valor_total))),
+    sumar(this.obligacionesAgua().map((o) => Number(o.total_a_cobrar))),
   );
   readonly seleccionadasAgua = computed(() =>
     this.obligacionesAgua().filter((o) => this.seleccionAgua().has(o.id)),
   );
   readonly totalSeleccionadoAgua = computed(() =>
-    sumar(this.seleccionadasAgua().map((o) => Number(o.valor_total))),
+    sumar(this.seleccionadasAgua().map((o) => Number(o.total_a_cobrar))),
+  );
+  /** Recargo del 10% incluido en lo seleccionado (cuotas pagadas después del 31 de marzo de su año). */
+  readonly recargoSeleccionadoAgua = computed(() =>
+    sumar(this.seleccionadasAgua().map((o) => Number(o.recargo))),
   );
   readonly todasAguaMarcadas = computed(
     () =>
@@ -346,7 +371,12 @@ export class CobroCajaComponent {
       next: (res) => {
         const ordenadas = [...(res.data ?? [])]
           .sort((a, b) => a.periodo_anio - b.periodo_anio || a.id - b.id)
-          .map((o) => ({ ...o, valor_total: Number(o.valor_total) }));
+          .map((o) => ({
+            ...o,
+            valor_total: Number(o.valor_total),
+            recargo: Number(o.recargo ?? 0),
+            total_a_cobrar: Number(o.total_a_cobrar ?? o.valor_total),
+          }));
         this.obligacionesAgua.set(ordenadas);
         this.seleccionAgua.set(new Set(ordenadas.map((o) => o.id)));
         this.cargandoAgua.set(false);
@@ -414,11 +444,9 @@ export class CobroCajaComponent {
 
     const anual = this.pestana() === 'AGUA';
     const lineas: ComprobanteLinea[] = anual
-      ? this.seleccionadasAgua().map((o) => ({
-          concepto: 'Pago anual de agua',
-          periodo: `Año ${o.periodo_anio}`,
-          valor: o.valor_total,
-        }))
+      ? this.seleccionadasAgua().flatMap((o) =>
+          lineasDeAgua(o.periodo_anio, o.total_a_cobrar, o.recargo),
+        )
       : this.seleccionadasOtras().map((o) => ({
           concepto: o.concepto_nombre || 'Obligación',
           periodo: etiquetaPeriodo(o.periodo_anio, o.periodo_mes),
@@ -519,6 +547,14 @@ export class CobroCajaComponent {
     this.comprobanteArchivo.set(null);
     this.pestana.set(pestana);
   }
+}
+
+/** Impago de un año que ya terminó, o acumulado digitado desde el papel (concepto «de años anteriores»). */
+function esDeAniosAnteriores(o: ObligacionItem, anioActual: number): boolean {
+  return (
+    Boolean(o.concepto_codigo?.endsWith('_ANTERIOR')) ||
+    (Boolean(o.periodo_anio) && o.periodo_anio < anioActual)
+  );
 }
 
 /** Copia del conjunto con `valor` agregado o quitado. */

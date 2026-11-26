@@ -11,6 +11,7 @@ const { hoy, inicioDelDiaUtc, finDelDiaUtc, ZONA_MYSQL } = require('../shared/da
 const { notFound } = require('../shared/errors');
 const { patronContiene } = require('../shared/sql');
 const { aCentavos, aDolares, restarMontos } = require('../shared/money');
+const { sqlRecargoAgua } = require('./finanzasService');
 
 const where = (condiciones) => (condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '');
 
@@ -28,7 +29,7 @@ async function listarConceptos(conexion, fecha = hoy()) {
              WHERE t.concepto_id = c.id AND t.activo = TRUE AND t.vigencia_desde <= ? AND (t.vigencia_hasta IS NULL OR t.vigencia_hasta >= ?)
              ORDER BY t.vigencia_desde DESC LIMIT 1) AS tarifa_actual
      FROM conceptos_cobro c
-     WHERE c.activo = TRUE
+     WHERE c.activo = TRUE AND c.historico = FALSE
      ORDER BY c.nombre ASC`,
     [fecha, fecha]
   );
@@ -165,7 +166,7 @@ async function detallePagoAnual(conexion, id) {
   );
   if (!filas.length) return null;
   const [detalles] = await conexion.query(
-    `SELECT d.obligacion_anual_agua AS obligacion_id, d.valor_pagado, o.periodo_anio, o.lote_id,
+    `SELECT d.obligacion_anual_agua AS obligacion_id, d.valor_pagado, d.recargo, o.periodo_anio, o.lote_id,
             l.codigo AS lote_codigo
      FROM pago_anual_agua_detalle d
      JOIN obligacion_anual_agua o ON o.id = d.obligacion_anual_agua
@@ -192,7 +193,8 @@ async function listarEgresos(conexion, { proveedor, desde, hasta }) {
      ORDER BY e.fecha DESC, e.id DESC`,
     params
   );
-  return filas;
+  // La ruta del archivo no sale del servidor: la evidencia se descarga por su propio endpoint.
+  return filas.map(({ archivo_factura: archivo, ...egreso }) => ({ ...egreso, tiene_evidencia: Boolean(archivo) }));
 }
 
 /**
@@ -220,7 +222,15 @@ async function balance(conexion, { desde, hasta }) {
   const [[{ ingresosAnuales }]] = await conexion.query(
     `SELECT COALESCE(SUM(valor_total), 0) AS ingresosAnuales FROM pago_anual_agua ${where(filtroPagosAnuales)}`, pIngresosAnuales
   );
-  const totalIngresos = sumarMontos(ingresosPagos, ingresosAnuales);
+  // Caja previa al sistema: lo que la Junta ya tenía en caja, anotado como un total y no como pagos.
+  const filtroPrevios = ["estado = 'VIGENTE'"];
+  const pPrevios = [];
+  if (desde) { filtroPrevios.push('fecha >= ?'); pPrevios.push(desde); }
+  if (hasta) { filtroPrevios.push('fecha <= ?'); pPrevios.push(hasta); }
+  const [[{ ingresosPrevios }]] = await conexion.query(
+    `SELECT COALESCE(SUM(valor), 0) AS ingresosPrevios FROM ingresos_previos ${where(filtroPrevios)}`, pPrevios
+  );
+  const totalIngresos = sumarMontos(ingresosPagos, ingresosAnuales, ingresosPrevios);
   const [[{ totalEgresos }]] = await conexion.query(
     `SELECT COALESCE(SUM(valor), 0) AS totalEgresos FROM egresos ${where(filtroEgresos)}`, pEgresos
   );
@@ -230,11 +240,12 @@ async function balance(conexion, { desde, hasta }) {
      FROM obligaciones WHERE estado = 'PENDIENTE'`,
     [hoy()]
   );
+  // La cartera del agua incluye el recargo del 10% de las cuotas que ya pasaron el 31 de marzo de su año.
   const [[carteraAnual]] = await conexion.query(
-    `SELECT COALESCE(SUM(valor_total), 0) AS total, COUNT(*) AS obligaciones,
-            COALESCE(SUM(CASE WHEN fecha_vencimiento < ? THEN valor_total END), 0) AS vencido
-     FROM obligacion_anual_agua WHERE estado = 'PENDIENTE'`,
-    [hoy()]
+    `SELECT COALESCE(SUM(o.valor_total + ${sqlRecargoAgua('o')}), 0) AS total, COUNT(*) AS obligaciones,
+            COALESCE(SUM(CASE WHEN o.fecha_vencimiento < ? THEN o.valor_total + ${sqlRecargoAgua('o')} END), 0) AS vencido
+     FROM obligacion_anual_agua o WHERE o.estado = 'PENDIENTE'`,
+    [hoy(), hoy(), hoy()]
   );
   const [[{ usuariosConDeuda }]] = await conexion.query(
     `SELECT COUNT(*) AS usuariosConDeuda FROM (
@@ -253,9 +264,11 @@ async function balance(conexion, { desde, hasta }) {
        FROM pago_anual_agua WHERE estado = 'VIGENTE' AND fecha_pago >= ? AND fecha_pago < ?
        UNION ALL
        SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, 0, valor FROM egresos WHERE estado = 'VIGENTE' AND fecha >= ? AND fecha <= ?
+       UNION ALL
+       SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, valor, 0 FROM ingresos_previos WHERE estado = 'VIGENTE' AND fecha >= ? AND fecha <= ?
      ) t GROUP BY mes ORDER BY mes DESC`,
     [ZONA_MYSQL, inicioDelDiaUtc(inicioResumen), finDelDiaUtc(fin),
-      ZONA_MYSQL, inicioDelDiaUtc(inicioResumen), finDelDiaUtc(fin), inicioResumen, fin]
+      ZONA_MYSQL, inicioDelDiaUtc(inicioResumen), finDelDiaUtc(fin), inicioResumen, fin, inicioResumen, fin]
   );
   const [carteraPorConcepto] = await conexion.query(
     `SELECT c.codigo, c.nombre, COUNT(*) AS obligaciones, SUM(o.valor) AS total
@@ -303,14 +316,16 @@ function totales(nodos) {
 async function historialAnual(conexion) {
   const [filas] = await conexion.query(
     `SELECT mes, SUM(ingresos) AS ingresos, SUM(egresos) AS egresos,
-            SUM(es_pago) AS pagos, SUM(1 - es_pago) AS registrosEgreso
+            SUM(es_pago) AS pagos, SUM(es_egreso) AS registrosEgreso
      FROM (
-       SELECT DATE_FORMAT(CONVERT_TZ(fecha_pago, '+00:00', ?), '%Y-%m') AS mes, valor_total AS ingresos, 0 AS egresos, 1 AS es_pago
+       SELECT DATE_FORMAT(CONVERT_TZ(fecha_pago, '+00:00', ?), '%Y-%m') AS mes, valor_total AS ingresos, 0 AS egresos, 1 AS es_pago, 0 AS es_egreso
        FROM pagos WHERE estado = 'VIGENTE'
        UNION ALL
-       SELECT DATE_FORMAT(CONVERT_TZ(fecha_pago, '+00:00', ?), '%Y-%m'), valor_total, 0, 1 FROM pago_anual_agua WHERE estado = 'VIGENTE'
+       SELECT DATE_FORMAT(CONVERT_TZ(fecha_pago, '+00:00', ?), '%Y-%m'), valor_total, 0, 1, 0 FROM pago_anual_agua WHERE estado = 'VIGENTE'
        UNION ALL
-       SELECT DATE_FORMAT(fecha, '%Y-%m'), 0, valor, 0 FROM egresos WHERE estado = 'VIGENTE'
+       SELECT DATE_FORMAT(fecha, '%Y-%m'), 0, valor, 0, 1 FROM egresos WHERE estado = 'VIGENTE'
+       UNION ALL
+       SELECT DATE_FORMAT(fecha, '%Y-%m'), valor, 0, 0, 0 FROM ingresos_previos WHERE estado = 'VIGENTE'
      ) t GROUP BY mes ORDER BY mes DESC`,
     [ZONA_MYSQL, ZONA_MYSQL]
   );

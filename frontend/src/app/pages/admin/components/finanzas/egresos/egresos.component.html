@@ -77,6 +77,7 @@
             <th scope="col">Concepto</th>
             <th scope="col">Proveedor</th>
             <th scope="col">Factura</th>
+            <th scope="col">Evidencia</th>
             <th scope="col" class="num">Valor</th>
           </tr>
         </thead>
@@ -100,6 +101,36 @@
                 }
               </td>
               <td class="money">{{ e.numero_factura || '—' }}</td>
+              <td>
+                @if (e.tiene_evidencia) {
+                  <button
+                    type="button"
+                    class="btn btn--outline btn--sm"
+                    [disabled]="ocupadoId() !== null"
+                    (click)="verEvidencia(e)"
+                    [attr.aria-label]="'Ver la evidencia del egreso ' + numeroEgreso(e.id)"
+                  >
+                    <i class="ri-attachment-2" aria-hidden="true"></i> Ver
+                  </button>
+                } @else {
+                  <input
+                    #adjunto
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png"
+                    hidden
+                    (change)="adjuntarEvidencia(e, adjunto)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn--outline btn--sm"
+                    [disabled]="ocupadoId() !== null"
+                    (click)="adjunto.click()"
+                    [attr.aria-label]="'Adjuntar la evidencia del egreso ' + numeroEgreso(e.id)"
+                  >
+                    <i class="ri-upload-2-line" aria-hidden="true"></i> Adjuntar
+                  </button>
+                }
+              </td>
               <td class="num">
                 <span class="money">{{ e.valor | moneda }}</span>
               </td>
@@ -223,6 +254,37 @@
           />
           @if (errorDe('numero_factura')) {
             <span class="field__error">{{ errorDe('numero_factura') }}</span>
+          }
+        </div>
+        <div class="field">
+          <label for="egreso-evidencia"
+            >Evidencia (factura, imagen o PDF) <span class="req" aria-hidden="true">*</span></label
+          >
+          <input
+            #evidenciaInput
+            id="egreso-evidencia"
+            name="evidencia"
+            type="file"
+            accept="application/pdf,image/jpeg,image/png"
+            hidden
+            (change)="elegirEvidencia(evidenciaInput)"
+          />
+          <button
+            type="button"
+            class="btn btn--outline btn--sm"
+            [disabled]="guardando()"
+            (click)="evidenciaInput.click()"
+          >
+            <i class="ri-upload-2-line" aria-hidden="true"></i>
+            {{ evidencia() ? 'Cambiar archivo' : 'Adjuntar archivo' }}
+          </button>
+          @if (evidencia(); as archivo) {
+            <span class="field__hint" aria-live="polite">{{ archivo.name }}</span>
+          } @else {
+            <span class="field__hint">PDF, JPG o PNG · hasta 10 MB. Obligatoria.</span>
+          }
+          @if (errorDe('evidencia')) {
+            <span class="field__error">{{ errorDe('evidencia') }}</span>
           }
         </div>
         <div class="field">

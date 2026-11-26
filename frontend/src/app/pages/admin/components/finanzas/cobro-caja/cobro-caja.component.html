@@ -145,9 +145,21 @@
                     (change)="alternarAgua(o.id)"
                   />
                   <span>
-                    <span class="check-row__title">Pago anual de agua · {{ o.periodo_anio }}</span>
+                    <span class="check-row__title">
+                      Pago anual de agua · {{ o.periodo_anio }}
+                      @if (o.lote_codigo) {
+                        · Lote {{ o.lote_codigo }}
+                      }
+                    </span>
+                    @if (o.recargo > 0) {
+                      <br />
+                      <span class="check-row__meta"
+                        >Cuota {{ o.valor_total | moneda }} + recargo del 10%
+                        {{ o.recargo | moneda }} (pago después del 31 de marzo)</span
+                      >
+                    }
                   </span>
-                  <span class="check-row__value money">{{ o.valor_total | moneda }}</span>
+                  <span class="check-row__value money">{{ o.total_a_cobrar | moneda }}</span>
                 </label>
               </li>
             }
@@ -160,6 +172,12 @@
               <span class="money">{{ totalAgua() | moneda }}</span></span
             >
           </div>
+          @if (recargoSeleccionadoAgua() > 0) {
+            <p class="text-muted" style="margin-top: 0.5rem">
+              Incluye {{ recargoSeleccionadoAgua() | moneda }} de recargo del 10% por pagar después
+              del 31 de marzo.
+            </p>
+          }
         }
       }
 
