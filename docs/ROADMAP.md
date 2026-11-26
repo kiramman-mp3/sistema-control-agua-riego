@@ -57,6 +57,11 @@ Plan de trabajo vigente: corrección de los hallazgos de la auditoría de prepar
 - [x] «Asignar terreno» pasa a «Asignar lote» en las pantallas y la documentación (`v1.6.0`).
 - [x] Los usuarios con historial se ocultan en vez de rechazar su eliminación, con «Ver eliminados» y «Restaurar» (`v1.6.0`, ADR 0006).
 - [x] Lista de lotes al asignar con filtro Disponibles / Con propietario / Todos (`v1.6.0`).
+- [x] Datos de la cuenta bancaria de la Junta (Cooperativa OSCUS) en Mi cuenta.
+- [x] Evidencia obligatoria en los egresos, con descarga privada.
+- [x] Recargo único del 10% del agua anual desde el 1 de abril; vencimiento de la cuota al 31 de marzo.
+- [x] Reporte de deudores del agua y las multas (imprimir y PDF) y resumen en el panel.
+- [x] Registro de históricos en papel por usuario y caja previa al sistema (migración `042`).
 - [ ] La descarga del PDF del acta falla en un dispositivo de un usuario: pendiente de su navegador y de la consola (F12) para reproducirla.
 
 ## Fuera de este roadmap
