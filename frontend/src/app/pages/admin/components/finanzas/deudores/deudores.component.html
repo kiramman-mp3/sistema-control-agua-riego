@@ -1,13 +1,11 @@
 <section class="fin-panel" aria-labelledby="deudores-titulo">
   <div class="fin-panel__head">
     <div>
-      <h3 class="fin-panel__title" id="deudores-titulo">
-        <i class="ri-user-unfollow-line" aria-hidden="true"></i> Deudores del agua y de las multas
-      </h3>
+      <h3 class="sr-only" id="deudores-titulo">Deudores del agua y de las multas</h3>
       @if (datos(); as d) {
-        <p class="fin-panel__desc">
-          Corte al {{ d.fecha | fechaLocal }}. El agua pendiente incluye el recargo del 10% de las
-          cuotas pagadas después del 31 de marzo de su año.
+        <p class="fin-panel__desc fin-panel__desc--sola">
+          Al {{ d.fecha | fechaLocal }} · el agua incluye el recargo del 10% si se paga después del
+          31 de marzo.
         </p>
       }
     </div>

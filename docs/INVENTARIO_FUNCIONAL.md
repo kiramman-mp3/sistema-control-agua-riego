@@ -107,7 +107,7 @@ Inventario de las funcionalidades del Sistema Integrado de Gestión de la Junta 
 | Caja previa al sistema | Cobros y pagos → Caja previa | Total que la Junta tenía en caja antes del sistema; suma al saldo y al historial, sin recibos ni pagos; se anula con motivo | Operativa |
 | Recargo del 10% del agua anual | Cobrar, recibos y Mi cuenta | Hasta el 31 de marzo el valor base; desde el 1 de abril un 10% único, calculado por la fecha de pago; los años anteriores siempre lo llevan | Operativa |
 | Deudores de agua y multas | Historial financiero → Deudores | Resumen y detalle por usuario (año en curso por mes, anteriores juntos); imprimir y PDF; solo tesorería | Operativa |
-| Registrar histórico (papel) | Padrón → Registrar histórico | Por usuario: agua del año por lote (debe / ya pagó en papel, sin recibo ni ingreso), acumulado de años anteriores y multas por mes; se puede corregir; solo tesorería | Operativa |
+| Registrar histórico (papel) | Padrón → Histórico | Por usuario: agua del año por lote (debe / ya pagó en papel, sin recibo ni ingreso), acumulado de años anteriores y multas por mes; se puede corregir; solo tesorería | Operativa |
 | Anular egreso | — | `POST /api/financiero/egresos/:id/anular` | Solo API |
 | Tarifas por concepto con vigencia | Tarifas y pago anual → Tarifas | Agua anual por hectárea, multa de asamblea, multa de minga | Operativa |
 | Emitir el pago anual de agua | Tarifas y pago anual → Pago anual | Vista previa obligatoria; bloquea si hay lotes sin superficie (permite completarla ahí) y avisa de superficies provisionales | Operativa |

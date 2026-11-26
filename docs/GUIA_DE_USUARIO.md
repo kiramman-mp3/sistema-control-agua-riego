@@ -131,7 +131,7 @@ Presenta a la Junta: quiénes somos, misión, sectores, directiva, contacto, las
 1. En la página de inicio, pulse **Ver cronograma de riego**.
 2. Elija el sector y, si quiere, el día.
 3. Cambie entre **Tarjetas** y la planilla.
-4. Para imprimir, use **Imprimir Hoja** o **Planilla Oficial (Formato PDF)**.
+4. Para imprimir, use **Imprimir** (arriba a la derecha de la ventana). La planilla y las tarjetas se adaptan al teléfono sin necesidad de deslizar hacia los lados.
 
 El cronograma público muestra el lote y el horario, **no** el nombre ni la cédula de las personas.
 
@@ -193,16 +193,16 @@ Muestra lo recaudado y lo pendiente, los egresos y el saldo de caja; **Acciones 
 
 #### Buscar usuarios
 
-Escriba cédula o nombre en el buscador; filtre por sector y por estado (**Activos**, **Inactivos**). **Limpiar filtros** quita los filtros. La columna **Agua al año** muestra las hectáreas y el valor anual según la tarifa vigente.
+Escriba cédula o nombre en el buscador; filtre por sector y por estado (**Activos**, **Inactivos**). **Limpiar filtros** quita los filtros. Cada fila muestra el nombre con la cédula y el teléfono debajo, el sector, los lotes y la columna **Agua al año** (hectáreas y valor anual según la tarifa vigente). Las acciones —editar, asignar lote, histórico y eliminar— quedan siempre visibles a la derecha de la fila, sin deslizar la tabla. El botón de la papelera junto a los filtros abre **Ver eliminados**.
 
 #### Registrar el histórico en papel (solo tesorería)
 
-Para pasar al sistema lo que cada usuario debía según los registros en papel, pulse **Registrar histórico** en el Padrón (o el ícono de libro de su fila) y elija al usuario. Con la persona y sus lotes ya registrados:
+Para pasar al sistema lo que cada usuario debía según los registros en papel, pulse **Histórico** en el Padrón (o el ícono de libro de su fila) y busque al usuario por cédula o nombre. Con la persona y sus lotes ya registrados, el formulario tiene tres pestañas; cada una muestra lo que suma y abajo siempre se ve el total que **quedará pendiente**:
 
-1. **Agua del año:** por cada lote marque **Debe** (queda pendiente, calculada por hectáreas × valor por hectárea) o **Ya pagó (en papel)** (queda pagada, sin recibo ni ingreso en caja).
+1. **Agua del año:** por cada lote marque **Debe** (queda pendiente, calculada por hectáreas × valor por hectárea) o **Ya pagó** (pagada en papel: sin recibo ni ingreso en caja).
 2. **Años anteriores:** escriba un solo valor acumulado para el agua, las multas de asambleas y las multas de mingas.
-3. **Multas del año en curso:** anótelas mes a mes.
-4. Guarde. Puede volver a abrirlo para corregir: un campo vacío no cambia nada y un `0` quita lo pendiente. Lo que ya se cobró en caja no se modifica.
+3. **Multas del año:** anótelas mes a mes, para asambleas y para mingas.
+4. Pulse **Guardar**. Puede volver a abrirlo para corregir: un campo vacío no cambia nada y un `0` quita lo pendiente. Lo que ya se cobró en caja no se modifica.
 
 En caja, lo anterior al año en curso aparece junto como **Años anteriores**. El dinero que ya estaba en caja se registra aparte en **Cobros y pagos → Caja previa**.
 

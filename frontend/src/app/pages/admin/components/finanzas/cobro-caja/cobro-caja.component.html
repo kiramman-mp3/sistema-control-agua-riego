@@ -1,16 +1,6 @@
 @if (!usuario()) {
   <section class="fin-panel" aria-labelledby="cobro-buscar-titulo">
-    <div class="fin-panel__head">
-      <div>
-        <h3 class="fin-panel__title" id="cobro-buscar-titulo">
-          <i class="ri-hand-coin-line" aria-hidden="true"></i> Cobrar a un usuario
-        </h3>
-        <p class="fin-panel__desc">
-          Busque por apellido, nombre o cédula. Se muestran todas sus obligaciones pendientes: el
-          pago anual de agua, multas y otros rubros.
-        </p>
-      </div>
-    </div>
+    <h3 class="sr-only" id="cobro-buscar-titulo">Cobrar a un usuario</h3>
 
     <div class="search-field">
       <i class="ri-search-line" aria-hidden="true"></i>
@@ -19,7 +9,7 @@
         class="input"
         type="search"
         autocomplete="off"
-        placeholder="Ej. Chicaiza o 1804567890"
+        placeholder="Buscar por apellido, nombre o cédula"
         aria-label="Buscar usuario"
         aria-describedby="cobro-busqueda-ayuda"
         [ngModel]="termino()"
@@ -33,8 +23,6 @@
         <span class="field__error">{{ errorBusqueda() }}</span>
       } @else if (termino().trim().length >= 2 && !resultados().length) {
         No hay usuarios que coincidan con «{{ termino().trim() }}».
-      } @else if (termino().trim().length < 2) {
-        Escriba al menos 2 caracteres.
       }
     </p>
 
