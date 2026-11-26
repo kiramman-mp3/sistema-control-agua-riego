@@ -1,4 +1,15 @@
-import { Component, DestroyRef, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  Injector,
+  afterNextRender,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, of, switchMap, catchError } from 'rxjs';
@@ -27,6 +38,7 @@ export interface PersonaHistorico {
 }
 
 type Tipo = 'ASAMBLEA' | 'MINGA';
+type Paso = 'agua' | 'anteriores' | 'multas';
 
 /** Campos de multas de un tipo: el acumulado de años anteriores y un valor por mes del año en curso. */
 interface FormMultas {
@@ -53,6 +65,7 @@ export class HistoricoUsuarioComponent {
   private finanzas = inject(FinanzasService);
   private notify = inject(NotificationService);
   private destroyRef = inject(DestroyRef);
+  private injector = inject(Injector);
 
   /** Usuario al que se registra el histórico; sin valor, el asistente empieza buscándolo. */
   readonly usuario = input<PersonaHistorico | null>(null);
@@ -71,6 +84,9 @@ export class HistoricoUsuarioComponent {
   readonly resultados = signal<UsuarioBusqueda[]>([]);
   readonly buscando = signal(false);
   private busqueda$ = new Subject<string>();
+
+  /** Pestaña visible del formulario. */
+  readonly paso = signal<Paso>('agua');
 
   readonly meses = MESES;
   readonly hoy = hoyEnEcuador();
@@ -93,6 +109,7 @@ export class HistoricoUsuarioComponent {
       const u = this.usuario();
       untracked(() => {
         if (u) this.elegir(u);
+        else this.enfocarBusqueda();
       });
     });
 
@@ -133,6 +150,16 @@ export class HistoricoUsuarioComponent {
     this.persona.set(null);
     this.datos.set(null);
     this.errorCarga.set('');
+    this.buscar('');
+    this.resultados.set([]);
+    this.enfocarBusqueda();
+  }
+
+  /** Al buscar al usuario, el cursor queda listo en el campo: no en el botón de cerrar. */
+  private enfocarBusqueda(): void {
+    afterNextRender(() => document.getElementById('hist-busqueda')?.focus(), {
+      injector: this.injector,
+    });
   }
 
   cargar(): void {
@@ -144,6 +171,8 @@ export class HistoricoUsuarioComponent {
       next: (res) => {
         this.llenar(res.data);
         this.datos.set(res.data);
+        // Sin lotes no hay agua del año que anotar: se empieza por lo de años anteriores.
+        this.paso.set(res.data.lotes.length ? 'agua' : 'anteriores');
         this.cargando.set(false);
       },
       error: (err) => {
@@ -197,22 +226,49 @@ export class HistoricoUsuarioComponent {
     return this.conRecargo(anio) ? redondear(base * 1.1) : base;
   }
 
-  /** Total que quedará pendiente según lo que se ve en pantalla (agua del año con recargo + acumulados + multas). */
-  totalPendiente(): number {
+  iniciales(p: { nombres: string; apellidos: string }): string {
+    return ((p.apellidos?.[0] ?? '') + (p.nombres?.[0] ?? '')).toUpperCase();
+  }
+
+  /** Agua del año en curso que quedará pendiente (lo que «debe», con el recargo si corresponde). */
+  private subtotalAgua(): number {
     const d = this.datos();
     if (!d) return 0;
-    let total = 0;
-    for (const l of d.lotes) {
-      if (this.estadoLote[l.lote_id] === 'DEBE' && l.cuota?.estado !== 'ANULADA') {
-        total += this.adeudaDe(l, d.anio);
-      }
-    }
-    total += this.aguaAnterior ?? 0;
-    for (const tipo of ['ASAMBLEA', 'MINGA'] as Tipo[]) {
-      total += this.multas[tipo].anterior ?? 0;
-      total += this.multas[tipo].meses.reduce<number>((s, v) => s + (v ?? 0), 0);
-    }
-    return redondear(total);
+    return d.lotes
+      .filter((l) => this.estadoLote[l.lote_id] === 'DEBE' && l.cuota?.estado !== 'ANULADA')
+      .reduce((s, l) => s + this.adeudaDe(l, d.anio), 0);
+  }
+
+  /** Acumulado de años anteriores: agua y multas. */
+  private subtotalAnteriores(): number {
+    return (
+      (this.aguaAnterior ?? 0) +
+      (['ASAMBLEA', 'MINGA'] as Tipo[]).reduce((s, t) => s + (this.multas[t].anterior ?? 0), 0)
+    );
+  }
+
+  /** Multas del año en curso, mes a mes. */
+  private subtotalMultas(): number {
+    return (['ASAMBLEA', 'MINGA'] as Tipo[]).reduce(
+      (s, t) => s + this.multas[t].meses.reduce<number>((a, v) => a + (v ?? 0), 0),
+      0,
+    );
+  }
+
+  /** Pestañas del formulario, cada una con lo que suma. */
+  pasos(): { id: Paso; titulo: string; subtotal: number }[] {
+    const anio = this.datos()?.anio ?? '';
+    return [
+      { id: 'agua', titulo: `Agua ${anio}`, subtotal: redondear(this.subtotalAgua()) },
+      { id: 'anteriores', titulo: 'Años anteriores', subtotal: redondear(this.subtotalAnteriores()) },
+      { id: 'multas', titulo: `Multas ${anio}`, subtotal: redondear(this.subtotalMultas()) },
+    ];
+  }
+
+  /** Total que quedará pendiente según lo que se ve en pantalla (agua del año con recargo + acumulados + multas). */
+  totalPendiente(): number {
+    if (!this.datos()) return 0;
+    return redondear(this.subtotalAgua() + this.subtotalAnteriores() + this.subtotalMultas());
   }
 
   /** Errores de validación de los importes (no negativos, dos decimales como máximo). */
