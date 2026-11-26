@@ -27,6 +27,13 @@ after(closeDatabase);
 
 const tarifa = (body) => request(app).post('/api/financiero/tarifas').set(auth(admin)).send({ concepto_id: aguaId, ...body });
 const pagar = (body) => request(app).post('/api/financiero/pagos').set(auth(admin)).send({ metodo: 'TRANSFERENCIA', referencia: 'TRF-123', ...body });
+const EVIDENCIA = Buffer.from('%PDF-1.4\nFactura de prueba\n%%EOF');
+/** Registra un egreso: multipart con la evidencia (obligatoria), salvo que se pida sin ella. */
+const crearEgreso = (cuerpo, { evidencia = true, quien = admin } = {}) => {
+  const peticion = request(app).post('/api/financiero/egresos').set(auth(quien));
+  for (const [campo, valor] of Object.entries(cuerpo)) peticion.field(campo, String(valor));
+  return evidencia ? peticion.attach('archivo', EVIDENCIA, 'factura.pdf') : peticion;
+};
 
 test('una tarifa nueva cierra la vigencia de la anterior y no se permiten solapes', async () => {
   assert.equal((await tarifa({ valor: 40, vigencia_desde: '2025-01-01' })).status, 201);
@@ -105,7 +112,7 @@ test('un texto "[ANULADO:" en la observación ya no saca el pago del balance', a
 });
 
 test('el balance respeta el rango de fechas en ingresos y egresos', async () => {
-  const egreso = await request(app).post('/api/financiero/egresos').set(auth(admin)).send({
+  const egreso = await crearEgreso({
     fecha: '2025-02-10', concepto: 'Compra de tubería PVC', proveedor: 'Ferretería Patate', ruc_proveedor: '1891234567001', valor: 120.5
   });
   assert.equal(egreso.status, 201, JSON.stringify(egreso.body));
@@ -114,7 +121,7 @@ test('el balance respeta el rango de fechas en ingresos y egresos', async () => 
   const dentro = await request(app).get('/api/financiero/balance?desde=2025-02-01&hasta=2025-02-28').set(auth(admin));
   assert.equal(dentro.body.balance.totalEgresos, 120.5);
   assert.equal((await request(app).get('/api/financiero/balance?desde=2025-03-01&hasta=2025-01-01').set(auth(admin))).status, 400);
-  assert.equal((await request(app).post('/api/financiero/egresos').set(auth(admin)).send({ fecha: '2999-01-01', concepto: 'Futuro', valor: 1 })).status, 400);
+  assert.equal((await crearEgreso({ fecha: '2999-01-01', concepto: 'Futuro', valor: 1 })).status, 400);
 });
 
 test('los filtros por día usan el calendario de Ecuador aunque fecha_pago esté en UTC', async () => {
@@ -190,8 +197,7 @@ test('el dashboard entrega indicadores reales', async () => {
 });
 
 test('el historial anual agrupa por año y mes y cuadra con el balance', async () => {
-  const egreso = (fecha, valor) => request(app).post('/api/financiero/egresos').set(auth(admin))
-    .send({ fecha, concepto: 'Mantenimiento del canal', valor });
+  const egreso = (fecha, valor) => crearEgreso({ fecha, concepto: 'Mantenimiento del canal', valor });
   assert.equal((await egreso('2019-03-10', 10.1)).status, 201);
   assert.equal((await egreso('2019-03-20', 0.2)).status, 201);
   assert.equal((await egreso('2019-05-02', 5)).status, 201);
@@ -217,7 +223,7 @@ test('el historial anual agrupa por año y mes y cuadra con el balance', async (
 });
 
 test('anula un egreso y lo descuenta del balance y del historial anual (H-02)', async () => {
-  const egreso = await request(app).post('/api/financiero/egresos').set(auth(admin)).send({
+  const egreso = await crearEgreso({
     fecha: '2025-06-15', concepto: 'Herramientas de minga erróneas', valor: 250.75
   });
   assert.equal(egreso.status, 201);
@@ -255,7 +261,7 @@ test('anula un egreso y lo descuenta del balance y del historial anual (H-02)', 
 });
 
 test('un egreso rechaza fechas anteriores al año 2000 y valores no numéricos', async () => {
-  const egreso = (cuerpo) => request(app).post('/api/financiero/egresos').set(auth(admin)).send({ concepto: 'Límites', valor: 10, fecha: '2026-01-15', ...cuerpo });
+  const egreso = (cuerpo) => crearEgreso({ concepto: 'Límites', valor: 10, fecha: '2026-01-15', ...cuerpo });
   assert.equal((await egreso({ fecha: '1999-12-31' })).status, 400);
   assert.equal((await egreso({ fecha: '1900-01-01' })).status, 400);
   assert.equal((await egreso({ fecha: '2000-01-01' })).status, 201);
@@ -267,7 +273,7 @@ test('un egreso rechaza fechas anteriores al año 2000 y valores no numéricos',
 
 test('el filtro de proveedor de egresos trata % y _ como texto, no como comodines', async () => {
   const lista = (proveedor) => request(app).get('/api/financiero/egresos').query({ proveedor }).set(auth(admin));
-  await request(app).post('/api/financiero/egresos').set(auth(admin)).send({
+  await crearEgreso({
     fecha: '2025-04-01', concepto: 'Cemento', proveedor: 'Ferretería Patate', valor: 30
   });
   assert.equal((await lista('Ferretería')).body.data.length > 0, true);
@@ -276,4 +282,58 @@ test('el filtro de proveedor de egresos trata % y _ como texto, no como comodine
     assert.equal(res.status, 200);
     assert.equal(res.body.data.length, 0, `"${comodin}" no debería coincidir con nada`);
   }
+});
+
+
+test('el egreso exige la evidencia (factura, imagen o PDF) y rechaza otros formatos', async () => {
+  const datos = { fecha: '2025-07-01', concepto: 'Compra con evidencia', valor: 18.4 };
+  const sin = await crearEgreso(datos, { evidencia: false });
+  assert.equal(sin.status, 400);
+  assert.match(sin.body.message, /evidencia/i);
+  const falso = await request(app).post('/api/financiero/egresos').set(auth(admin))
+    .field('fecha', datos.fecha).field('concepto', datos.concepto).field('valor', String(datos.valor))
+    .attach('archivo', Buffer.from('esto no es un pdf'), 'factura.pdf');
+  assert.equal(falso.status, 400, 'se identifica el tipo por su contenido, no por la extensión');
+  const [[{ n }]] = await db.query("SELECT COUNT(*) AS n FROM egresos WHERE concepto = 'Compra con evidencia'");
+  assert.equal(n, 0, 'sin evidencia válida no se guarda el egreso');
+  assert.equal((await crearEgreso(datos, { quien: usuario })).status, 403);
+});
+
+test('la evidencia del egreso se descarga solo con acceso de tesorería y la lista no expone la ruta', async () => {
+  const creado = await crearEgreso({ fecha: '2025-07-02', concepto: 'Egreso con respaldo', valor: 9 });
+  assert.equal(creado.status, 201, JSON.stringify(creado.body));
+  const id = creado.body.egresoId;
+  const [[fila]] = await db.query('SELECT archivo_factura FROM egresos WHERE id = ?', [id]);
+  assert.match(fila.archivo_factura, /^\/uploads\/documentos\/egreso_evidencia_/);
+
+  const evidencia = (quien) => request(app).get(`/api/financiero/egresos/${id}/evidencia`).set(auth(quien));
+  const ok = await evidencia(admin);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers['content-type'], 'application/pdf');
+  assert.equal((await evidencia(usuario)).status, 403);
+  assert.equal((await request(app).get(`/api/financiero/egresos/${id}/evidencia`)).status, 401);
+  // El archivo tampoco se sirve por la ruta de documentos: no está registrado como documento público.
+  assert.equal((await request(app).get(fila.archivo_factura)).status, 404);
+
+  const lista = (await request(app).get('/api/financiero/egresos?desde=2025-07-01&hasta=2025-07-31').set(auth(admin))).body.data;
+  const propio = lista.find((e) => e.id === id);
+  assert.equal(propio.tiene_evidencia, true);
+  assert.equal(propio.archivo_factura, undefined);
+});
+
+test('un egreso anterior sin evidencia admite adjuntarla después y se puede reemplazar', async () => {
+  const [{ insertId }] = await db.query(
+    "INSERT INTO egresos (fecha, concepto, valor, registrado_por_cuenta_id) VALUES ('2025-01-05', 'Egreso antiguo sin factura', 12, ?)", [admin.cuentaId]
+  );
+  const descargar = () => request(app).get(`/api/financiero/egresos/${insertId}/evidencia`).set(auth(admin));
+  assert.equal((await descargar()).status, 404, 'todavía sin evidencia');
+  const subir = (quien = admin) => request(app).post(`/api/financiero/egresos/${insertId}/evidencia`).set(auth(quien)).attach('archivo', EVIDENCIA, 'factura.pdf');
+  assert.equal((await subir(usuario)).status, 403);
+  assert.equal((await subir()).status, 200);
+  assert.equal((await descargar()).status, 200);
+  const [[{ primera }]] = await db.query('SELECT archivo_factura AS primera FROM egresos WHERE id = ?', [insertId]);
+  assert.equal((await subir()).status, 200);
+  const [[{ segunda }]] = await db.query('SELECT archivo_factura AS segunda FROM egresos WHERE id = ?', [insertId]);
+  assert.notEqual(segunda, primera, 'el archivo nuevo reemplaza al anterior');
+  assert.equal((await request(app).post('/api/financiero/egresos/999999/evidencia').set(auth(admin)).attach('archivo', EVIDENCIA, 'f.pdf')).status, 404);
 });

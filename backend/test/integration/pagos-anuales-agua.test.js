@@ -9,6 +9,9 @@ const { crearUsuario, auth, crearPersona, crearSector, crearLote, conceptoId } =
 
 let admin, usuario, otro;
 const ANIO_ACTUAL = Number(hoy().slice(0, 4));
+/** Recargo del 10% de una cuota pagada hoy: aplica si ya pasó el 31 de marzo del año de la cuota. */
+const recargoDe = (anio, valor) => (hoy() > `${anio}-03-31` ? Math.round(valor * 10) / 100 : 0);
+const conRecargo = (anio, valor) => Math.round((valor + recargoDe(anio, valor)) * 100) / 100;
 const generar = (cuerpo, quien = admin) => request(app).post('/api/financiero/agua-anual/obligaciones').set(auth(quien)).send(cuerpo);
 const pendientes = (personaId, quien = admin) => request(app).get(`/api/financiero/agua-anual/obligaciones/${personaId}`).set(auth(quien));
 const COMPROBANTE = Buffer.from('%PDF-1.4\nComprobante de prueba\n%%EOF');
@@ -89,7 +92,7 @@ test('genera una obligación por usuario activo con lote y repetir no duplica', 
   const [[fechas]] = await db.query(
     'SELECT fecha_emision, fecha_vencimiento FROM obligacion_anual_agua WHERE periodo_anio = 2026 AND persona_id = ?', [usuario.personaId]
   );
-  assert.deepEqual(fechas, { fecha_emision: '2026-01-01', fecha_vencimiento: '2026-12-31' });
+  assert.deepEqual(fechas, { fecha_emision: '2026-01-01', fecha_vencimiento: '2026-03-31' }, 'la cuota vence el 31 de marzo');
 
   const resumen = await request(app).get('/api/financiero/agua-anual/resumen?anio=2026').set(auth(admin));
   assert.equal(resumen.status, 200);
@@ -101,8 +104,10 @@ test('el usuario ve su pago anual pendiente en su estado de cuenta', async () =>
   const res = await request(app).get(`/api/personas/consulta/${usuario.cedula}`).set(auth(usuario));
   assert.equal(res.status, 200);
   const agua = res.body.resultado.deudas.filter((d) => d.tipo === 'AGUA_ANUAL');
-  assert.deepEqual(agua.map((d) => [d.anio, d.valor, d.estado]), [[2026, 10, 'PENDIENTE']]);
-  assert.equal(res.body.resultado.totalPendiente, 10);
+  assert.deepEqual(agua.map((d) => [d.anio, d.valor, d.estado]), [[2026, conRecargo(2026, 10), 'PENDIENTE']]);
+  assert.equal(agua[0].valorBase, 10);
+  assert.equal(agua[0].recargo, recargoDe(2026, 10));
+  assert.equal(res.body.resultado.totalPendiente, conRecargo(2026, 10), 'el saldo incluye el recargo');
 });
 
 test('lista las obligaciones pendientes del usuario, de la más antigua a la más reciente', async () => {
@@ -111,6 +116,8 @@ test('lista las obligaciones pendientes del usuario, de la más antigua a la má
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.data.map((o) => o.periodo_anio), [2025, 2026]);
   assert.deepEqual(res.body.data.map((o) => o.valor_total), [8, 10]);
+  assert.deepEqual(res.body.data.map((o) => o.recargo), [recargoDe(2025, 8), recargoDe(2026, 10)]);
+  assert.deepEqual(res.body.data.map((o) => o.total_a_cobrar), [conRecargo(2025, 8), conRecargo(2026, 10)]);
   assert.equal((await pendientes(999999)).status, 404);
   assert.equal((await request(app).get('/api/financiero/agua-anual/obligaciones/abc').set(auth(admin))).status, 400);
 });
@@ -121,11 +128,13 @@ test('registra el pago, marca las obligaciones y deja la auditoría', async () =
 
   const res = await pagar({ persona_id: usuario.personaId, obligacionesIds: ids, metodo: 'TRANSFERENCIA', referencia: 'TRF-77' });
   assert.equal(res.status, 201, JSON.stringify(res.body));
-  assert.equal(res.body.valorTotal, 18);
+  const esperado = Math.round((conRecargo(2025, 8) + conRecargo(2026, 10)) * 100) / 100;
+  assert.equal(res.body.valorTotal, esperado, 'el pago incluye el recargo del 10% de las cuotas vencidas');
+  assert.equal(res.body.recargo, Math.round((recargoDe(2025, 8) + recargoDe(2026, 10)) * 100) / 100);
   assert.equal(res.body.actualizados, 2);
 
   const [[pago]] = await db.query('SELECT * FROM pago_anual_agua WHERE id = ?', [res.body.pagoId]);
-  assert.equal(Number(pago.valor_total), 18);
+  assert.equal(Number(pago.valor_total), esperado);
   assert.equal(pago.metodo, 'TRANSFERENCIA');
   assert.equal(pago.referencia, 'TRF-77');
   assert.equal(Number(pago.registrado_por_cuenta_id), admin.cuentaId);
@@ -169,7 +178,10 @@ test('una obligación no se paga dos veces aunque lleguen dos cobros a la vez', 
 
 test('el balance, el historial y el panel suman los pagos anuales y la cartera pendiente', async () => {
   const [[{ pagado }]] = await db.query('SELECT COALESCE(SUM(valor_total), 0) AS pagado FROM pago_anual_agua');
-  const [[{ pendiente }]] = await db.query("SELECT COALESCE(SUM(valor_total), 0) AS pendiente FROM obligacion_anual_agua WHERE estado = 'PENDIENTE'");
+  const [[{ pendiente }]] = await db.query(
+    `SELECT COALESCE(SUM(valor_total + IF(? > CONCAT(periodo_anio, '-03-31'), ROUND(valor_total * 0.1, 2), 0)), 0) AS pendiente
+     FROM obligacion_anual_agua WHERE estado = 'PENDIENTE'`, [hoy()]
+  );
   assert.ok(Number(pagado) > 0 && Number(pendiente) > 0);
 
   const { body } = await balance();
@@ -214,7 +226,8 @@ test('lista los pagos anuales: la directiva todos, el usuario solo los suyos, y 
 
   const detalle = await request(app).get(`/api/financiero/agua-anual/pagos/${pagoUsuario.id}`).set(auth(usuario));
   assert.equal(detalle.status, 200);
-  assert.deepEqual(detalle.body.data.detalles.map((d) => [d.periodo_anio, d.valor_pagado]), [[2025, 8], [2026, 10]]);
+  assert.deepEqual(detalle.body.data.detalles.map((d) => [d.periodo_anio, d.valor_pagado]), [[2025, conRecargo(2025, 8)], [2026, conRecargo(2026, 10)]]);
+  assert.deepEqual(detalle.body.data.detalles.map((d) => d.recargo), [recargoDe(2025, 8), recargoDe(2026, 10)]);
   assert.equal((await request(app).get(`/api/financiero/agua-anual/pagos/${pagoUsuario.id}`).set(auth(otro))).status, 404);
 });
 
