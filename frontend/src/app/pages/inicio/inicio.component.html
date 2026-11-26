@@ -259,6 +259,31 @@
               </button>
             }
           </div>
+          @if (sectorCronograma && sectorCronograma.total_turnos) {
+            <!-- FORMATO DE VISTA (PLANILLA DIRECTA TIPO PDF O TARJETAS) -->
+            <div class="vista-selector-row">
+              <div class="vista-selector-btns" role="group" aria-label="Formato de visualización">
+                <button
+                  type="button"
+                  class="btn-vista-pill"
+                  [class.active]="vistaCronograma === 'tabla'"
+                  (click)="vistaCronograma = 'tabla'"
+                  title="Ver en formato Planilla directa tipo lista oficial (igual que el PDF)"
+                >
+                  <i class="ri-table-line" aria-hidden="true"></i> Planilla
+                </button>
+                <button
+                  type="button"
+                  class="btn-vista-pill"
+                  [class.active]="vistaCronograma === 'tarjetas'"
+                  (click)="vistaCronograma = 'tarjetas'"
+                  title="Ver en formato tarjetas individuales"
+                >
+                  <i class="ri-grid-fill" aria-hidden="true"></i> Tarjetas
+                </button>
+              </div>
+            </div>
+          }
         </div>
       </div>
 
@@ -275,88 +300,72 @@
             <div class="empty-icon-wrap">
               <i class="ri-water-flash-line" aria-hidden="true"></i>
             </div>
-            <h3>Sin turnos registrados todavía</h3>
+            <h3>Sin turnos programados</h3>
             <p class="text-muted">
-              Aún no se han programado turnos de entrega de agua para el sector
-              {{ nombreSectorModal }}.
+              Todavía no hay turnos de riego para el sector {{ nombreSectorModal }}. Consulte con
+              la directiva de la Junta o elija otro sector arriba.
             </p>
-            <p class="empty-hint">Por favor consulte con la directiva de la Junta de Aguas.</p>
           </div>
         } @else {
-          <!-- CONTROLES FIJOS: día de la semana y formato; solo la lista de turnos se desplaza -->
+          <!-- FILTRO DE DÍAS: una sola fila; los días sin turnos se ven atenuados. Solo la lista se desplaza -->
           <div class="cronograma-controles">
-          <div class="day-tabs-scroll-wrapper">
-            <div class="day-tabs-list" role="tablist">
+            <div class="day-strip" role="tablist" aria-label="Filtrar turnos por día">
               <button
                 type="button"
-                class="day-tab-btn"
-                [class.active]="diaSeleccionadoModal === 'TODOS'"
-                (click)="seleccionarDia('TODOS')"
                 role="tab"
+                class="day-chip day-chip--todos"
+                [class.active]="diaSeleccionadoModal === 'TODOS'"
+                [attr.aria-selected]="diaSeleccionadoModal === 'TODOS'"
+                (click)="seleccionarDia('TODOS')"
               >
                 <i class="ri-calendar-2-line" aria-hidden="true"></i>
                 <span>Toda la semana</span>
-                <span class="tab-badge">{{ sectorCronograma.total_turnos }}</span>
+                <span class="day-chip__n">{{ sectorCronograma.total_turnos }}</span>
               </button>
-
               @for (d of sectorCronograma.dias; track d.dia_semana) {
                 <button
                   type="button"
-                  class="day-tab-btn"
-                  [class.active]="diaSeleccionadoModal.toLowerCase() === d.dia_nombre.toLowerCase()"
-                  (click)="seleccionarDia(d.dia_nombre)"
                   role="tab"
+                  class="day-chip"
+                  [class.day-chip--vacio]="!d.turnos.length"
+                  [class.active]="diaSeleccionadoModal.toLowerCase() === d.dia_nombre.toLowerCase()"
+                  [attr.aria-selected]="
+                    diaSeleccionadoModal.toLowerCase() === d.dia_nombre.toLowerCase()
+                  "
+                  [title]="
+                    d.turnos.length
+                      ? d.dia_nombre + ': ' + d.turnos.length + (d.turnos.length === 1 ? ' turno' : ' turnos')
+                      : d.dia_nombre + ': sin turnos'
+                  "
+                  (click)="seleccionarDia(d.dia_nombre)"
                 >
-                  @if (d.turnos.length > 0) {
-                    <i class="ri-sun-line" aria-hidden="true"></i>
+                  <span class="day-chip__largo">{{ d.dia_nombre }}</span>
+                  <span class="day-chip__corto" aria-hidden="true">{{ d.dia_nombre.slice(0, 3) }}</span>
+                  @if (d.turnos.length) {
+                    <span class="day-chip__n">{{ d.turnos.length }}</span>
                   }
-                  <span>{{ d.dia_nombre }}</span>
-                  <span class="tab-badge" [class.tab-badge--empty]="d.turnos.length === 0">
-                    {{ d.turnos.length }}
-                  </span>
                 </button>
               }
             </div>
           </div>
 
-          <!-- SELECTOR DE FORMATO DE VISTA (PLANILLA DIRECTA TIPO PDF O TARJETAS) -->
-          <div class="vista-selector-row">
-            <div class="vista-selector-btns" role="group" aria-label="Formato de visualización">
-              <button
-                type="button"
-                class="btn-vista-pill"
-                [class.active]="vistaCronograma === 'tabla'"
-                (click)="vistaCronograma = 'tabla'"
-                title="Ver en formato Planilla directa tipo lista oficial (igual que el PDF)"
-              >
-                <i class="ri-table-line" aria-hidden="true"></i> Planilla
-              </button>
-              <button
-                type="button"
-                class="btn-vista-pill"
-                [class.active]="vistaCronograma === 'tarjetas'"
-                (click)="vistaCronograma = 'tarjetas'"
-                title="Ver en formato tarjetas individuales"
-              >
-                <i class="ri-grid-fill" aria-hidden="true"></i> Tarjetas
-              </button>
-            </div>
-          </div>
-          </div>
-
           <!-- CONTENIDO DE TURNOS AGRUPADOS POR DÍA -->
           @if (diasVisibles().length === 0) {
             <div class="no-matches-box">
-              <i class="ri-user-search-line" aria-hidden="true"></i>
-              <h4>No hay turnos para el día seleccionado</h4>
-              <p class="text-muted">Seleccione "Toda la semana" para ver todos los turnos.</p>
-              <button
-                type="button"
-                class="btn btn--outline btn--sm mt-2"
-                (click)="diaSeleccionadoModal = 'TODOS'"
-              >
-                Mostrar todos los turnos
-              </button>
+              <i class="ri-calendar-close-line" aria-hidden="true"></i>
+              <h4>No hay turnos el {{ diaSeleccionadoModal.toLowerCase() }}</h4>
+              <p class="text-muted">Este sector recibe el agua:</p>
+              <div class="no-matches-box__dias">
+                @for (d of diasConTurnos(); track d.dia_semana) {
+                  <button type="button" class="day-chip" (click)="seleccionarDia(d.dia_nombre)">
+                    <span>{{ d.dia_nombre }}</span>
+                    <span class="day-chip__n">{{ d.turnos.length }}</span>
+                  </button>
+                }
+                <button type="button" class="btn btn--outline btn--sm" (click)="seleccionarDia('TODOS')">
+                  Ver toda la semana
+                </button>
+              </div>
             </div>
           } @else {
             <div class="days-schedule-container">
