@@ -10,6 +10,8 @@ import { HistorialFinancieroComponent } from './historial-financiero/historial-f
 import { EgresosComponent } from './egresos/egresos.component';
 import { FacturacionAnualComponent } from './facturacion-anual/facturacion-anual.component';
 import { TarifasComponent } from './tarifas/tarifas.component';
+import { CajaPreviaComponent } from './caja-previa/caja-previa.component';
+import { DeudoresComponent } from './deudores/deudores.component';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header.component';
 import { GRUPOS_FINANZAS, GrupoFinanzas, SeccionFinanzas } from './grupos-finanzas';
 import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
@@ -33,6 +35,8 @@ interface Indicadores {
     HistorialFinancieroComponent,
     FacturacionAnualComponent,
     TarifasComponent,
+    CajaPreviaComponent,
+    DeudoresComponent,
   ],
   templateUrl: './finanzas.component.html',
 })

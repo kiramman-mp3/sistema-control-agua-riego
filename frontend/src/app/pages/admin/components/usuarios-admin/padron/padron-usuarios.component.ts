@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, debounceTime } from 'rxjs';
 import { AdminService } from '../../../../../core/services/admin.service';
+import { AuthService } from '../../../../../core/services/auth.service';
 import {
   CuentaBloqueada,
   LoteItem,
@@ -29,6 +30,10 @@ import { VincularLoteComponent } from '../vincular-lote/vincular-lote.component'
 import { LotesUsuarioComponent } from '../lotes-usuario/lotes-usuario.component';
 import { LoteDetalleComponent } from '../lote-detalle/lote-detalle.component';
 import { LoteFormComponent } from '../lote-form/lote-form.component';
+import {
+  HistoricoUsuarioComponent,
+  PersonaHistorico,
+} from '../historico-usuario/historico-usuario.component';
 import { AYUDAS_FORMULARIO } from '../../../../../core/directives/formularios';
 import { MonedaPipe } from '../../../../../shared/pipes/moneda.pipe';
 
@@ -50,6 +55,7 @@ import { MonedaPipe } from '../../../../../shared/pipes/moneda.pipe';
     LotesUsuarioComponent,
     LoteDetalleComponent,
     LoteFormComponent,
+    HistoricoUsuarioComponent,
   ],
   templateUrl: './padron-usuarios.component.html',
 })
@@ -58,6 +64,9 @@ export class PadronUsuariosComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   private notify = inject(NotificationService);
   private dialog = inject(DialogService);
+
+  /** Solo el tesorero registra deudas: el histórico es parte de las finanzas. */
+  readonly esTesorero = inject(AuthService).esTesorero();
 
   /** ?nuevo=usuario abre el formulario desde el acceso rápido del dashboard. */
   readonly nuevo = input<string | undefined>();
@@ -85,6 +94,8 @@ export class PadronUsuariosComponent implements OnInit {
   readonly lotesDeUsuario = signal<PersonaListado | null>(null);
   readonly loteDetalle = signal<LoteItem | null>(null);
   readonly loteEnEdicion = signal<LoteItem | null>(null);
+  /** Histórico (datos en papel): con `usuario` null el asistente empieza buscando al usuario. */
+  readonly historicoDe = signal<{ usuario: PersonaHistorico | null } | null>(null);
 
   constructor() {
     effect(() => {

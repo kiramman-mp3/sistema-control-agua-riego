@@ -10,7 +10,14 @@ export interface DeudaItem {
   conceptoCodigo?: string;
   anio: number;
   periodo: string;
+  /** Lo que se debe hoy: en una cuota de agua pendiente ya incluye el recargo del 10%. */
   valor: number;
+  /** Valor de la cuota sin recargo (solo en el agua anual). */
+  valorBase?: number;
+  /** 10% por pagar después del 31 de marzo del año de la cuota (solo en el agua anual pendiente). */
+  recargo?: number;
+  /** Cuota que el socio pagó en papel, antes del sistema: no tiene recibo. */
+  pagadaAntesSistema?: boolean;
   estado: 'PENDIENTE' | 'PAGADA' | 'ANULADA';
   fechaEmision: string;
   pagoId?: number | null;

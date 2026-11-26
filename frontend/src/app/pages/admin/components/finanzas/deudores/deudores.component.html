@@ -1,0 +1,253 @@
+<section class="fin-panel" aria-labelledby="deudores-titulo">
+  <div class="fin-panel__head">
+    <div>
+      <h3 class="sr-only" id="deudores-titulo">Deudores del agua y de las multas</h3>
+      @if (datos(); as d) {
+        <p class="fin-panel__desc fin-panel__desc--sola">
+          Al {{ d.fecha | fechaLocal }} · el agua incluye el recargo del 10% si se paga después del
+          31 de marzo.
+        </p>
+      }
+    </div>
+    <div class="fin-panel__actions no-print">
+      <button
+        type="button"
+        class="btn btn--outline pressable"
+        (click)="imprimir()"
+        [disabled]="!filtrados().length"
+      >
+        <i class="ri-printer-line" aria-hidden="true"></i> Imprimir
+      </button>
+      <button
+        type="button"
+        class="btn btn--primary pressable"
+        (click)="descargarPdf()"
+        [disabled]="!filtrados().length || generandoPdf()"
+      >
+        <i class="ri-file-pdf-2-line" aria-hidden="true"></i>
+        {{ generandoPdf() ? 'Generando…' : 'Descargar PDF' }}
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="alert alert--danger" role="alert">
+      {{ error() }}
+      <button type="button" class="btn btn--outline btn--sm" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (cargando() && !datos()) {
+    <div aria-live="polite">
+      <div class="skeleton skeleton--text"></div>
+      <div class="skeleton skeleton--text"></div>
+    </div>
+  } @else if (datos(); as d) {
+    <!-- RESUMEN CORTO -->
+    <div class="stat-grid stat-grid--cuatro" aria-label="Resumen de deudores">
+      <div class="stat-tile stat-tile--warning">
+        <span class="stat-tile__label">Total adeudado</span>
+        <span class="stat-tile__value">{{ d.resumen.total | moneda }}</span>
+        <span class="stat-tile__hint">{{ d.resumen.usuarios }} usuarios con deuda</span>
+      </div>
+      <div class="stat-tile">
+        <span class="stat-tile__label">Agua</span>
+        <span class="stat-tile__value">{{ d.resumen.agua.total | moneda }}</span>
+        <span class="stat-tile__hint"
+          >{{ d.resumen.agua.usuarios }} usuarios · anteriores
+          <span class="money">{{ d.resumen.agua.anteriores | moneda }}</span></span
+        >
+      </div>
+      <div class="stat-tile">
+        <span class="stat-tile__label">Multas de asambleas</span>
+        <span class="stat-tile__value">{{ d.resumen.multas_asamblea.total | moneda }}</span>
+        <span class="stat-tile__hint"
+          >{{ d.resumen.multas_asamblea.usuarios }} usuarios · anteriores
+          <span class="money">{{ d.resumen.multas_asamblea.anteriores | moneda }}</span></span
+        >
+      </div>
+      <div class="stat-tile">
+        <span class="stat-tile__label">Multas de mingas</span>
+        <span class="stat-tile__value">{{ d.resumen.multas_minga.total | moneda }}</span>
+        <span class="stat-tile__hint"
+          >{{ d.resumen.multas_minga.usuarios }} usuarios · anteriores
+          <span class="money">{{ d.resumen.multas_minga.anteriores | moneda }}</span></span
+        >
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="field-row no-print" style="margin: 1rem 0">
+      <div class="field">
+        <label for="deudores-texto">Buscar</label>
+        <input
+          id="deudores-texto"
+          class="input"
+          type="search"
+          placeholder="Nombre o cédula"
+          [ngModel]="texto()"
+          (ngModelChange)="texto.set($event)"
+        />
+      </div>
+      <div class="field">
+        <label for="deudores-filtro">Mostrar deudores de</label>
+        <select
+          id="deudores-filtro"
+          class="input"
+          [ngModel]="filtro()"
+          (ngModelChange)="filtro.set($event)"
+        >
+          @for (f of filtros; track f.valor) {
+            <option [value]="f.valor">{{ f.etiqueta }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <p class="caption" aria-live="polite">
+      {{ filtrados().length }} {{ filtrados().length === 1 ? 'usuario' : 'usuarios' }} · total
+      <strong class="money">{{ totalFiltrado() | moneda }}</strong>
+    </p>
+
+    @if (!filtrados().length) {
+      <div class="empty-state">
+        <i class="ri-checkbox-circle-line" aria-hidden="true"></i>
+        <strong>Sin deudores</strong>
+        <p>No hay usuarios con deudas pendientes para este filtro.</p>
+      </div>
+    } @else {
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Detalle de deudores">
+        <table class="fin-table">
+          <thead>
+            <tr>
+              <th scope="col">Usuario</th>
+              <th scope="col" class="num">Agua {{ d.anio }}</th>
+              <th scope="col" class="num">Agua anteriores</th>
+              <th scope="col" class="num">Asambleas</th>
+              <th scope="col" class="num">Mingas</th>
+              <th scope="col" class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (x of filtrados(); track x.persona_id) {
+              <tr>
+                <td>
+                  <button
+                    type="button"
+                    class="link-btn"
+                    [attr.aria-expanded]="abiertos().has(x.persona_id)"
+                    [attr.aria-controls]="'deudor-' + x.persona_id"
+                    (click)="alternar(x.persona_id)"
+                  >
+                    <i
+                      [class]="
+                        abiertos().has(x.persona_id)
+                          ? 'ri-arrow-down-s-line'
+                          : 'ri-arrow-right-s-line'
+                      "
+                      aria-hidden="true"
+                    ></i>
+                    <strong>{{ x.nombre }}</strong>
+                  </button>
+                  <br /><span class="fin-table__muted">C.I. {{ x.cedula }}</span>
+                </td>
+                <td class="num">
+                  <span class="money">{{ x.agua.actual + x.agua.recargo_actual | moneda }}</span>
+                </td>
+                <td class="num">
+                  <span class="money">{{ x.agua.anteriores | moneda }}</span>
+                </td>
+                <td class="num">
+                  <span class="money">{{ totalMultas(x.multas_asamblea) | moneda }}</span>
+                </td>
+                <td class="num">
+                  <span class="money">{{ totalMultas(x.multas_minga) | moneda }}</span>
+                </td>
+                <td class="num">
+                  <strong class="money">{{ valorDe(x) | moneda }}</strong>
+                </td>
+              </tr>
+              @if (abiertos().has(x.persona_id)) {
+                <tr [id]="'deudor-' + x.persona_id" class="fin-table__detalle">
+                  <td colspan="6">
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+                        gap: 1rem;
+                      "
+                    >
+                      <div>
+                        <strong>Agua</strong>
+                        <ul class="alert__list">
+                          @if (x.agua.actual > 0) {
+                            <li>
+                              {{ d.anio }}: {{ x.agua.actual | moneda }}
+                              @if (x.agua.lotes_actual.length) {
+                                (lotes {{ x.agua.lotes_actual.join(', ') }})
+                              }
+                              @if (x.agua.recargo_actual > 0) {
+                                + recargo 10% {{ x.agua.recargo_actual | moneda }}
+                              }
+                            </li>
+                          }
+                          @if (x.agua.anteriores > 0) {
+                            <li>
+                              Años anteriores: {{ x.agua.anteriores | moneda }}
+                              @if (x.agua.recargo_anteriores > 0) {
+                                (incluye recargo {{ x.agua.recargo_anteriores | moneda }})
+                              }
+                            </li>
+                          }
+                          @if (x.agua.total === 0) {
+                            <li>Sin deuda de agua.</li>
+                          }
+                        </ul>
+                      </div>
+                      <div>
+                        <strong>Multas de asambleas</strong>
+                        <ul class="alert__list">
+                          @for (m of x.multas_asamblea.meses; track m.mes) {
+                            <li>
+                              {{ meses[m.mes - 1] }}: {{ m.valor | moneda }}
+                              @if (m.cantidad > 1) {
+                                ({{ m.cantidad }})
+                              }
+                            </li>
+                          }
+                          @if (x.multas_asamblea.anteriores > 0) {
+                            <li>Años anteriores: {{ x.multas_asamblea.anteriores | moneda }}</li>
+                          }
+                          @if (totalMultas(x.multas_asamblea) === 0) {
+                            <li>Sin multas.</li>
+                          }
+                        </ul>
+                      </div>
+                      <div>
+                        <strong>Multas de mingas</strong>
+                        <ul class="alert__list">
+                          @for (m of x.multas_minga.meses; track m.mes) {
+                            <li>
+                              {{ meses[m.mes - 1] }}: {{ m.valor | moneda }}
+                              @if (m.cantidad > 1) {
+                                ({{ m.cantidad }})
+                              }
+                            </li>
+                          }
+                          @if (x.multas_minga.anteriores > 0) {
+                            <li>Años anteriores: {{ x.multas_minga.anteriores | moneda }}</li>
+                          }
+                          @if (totalMultas(x.multas_minga) === 0) {
+                            <li>Sin multas.</li>
+                          }
+                        </ul>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>

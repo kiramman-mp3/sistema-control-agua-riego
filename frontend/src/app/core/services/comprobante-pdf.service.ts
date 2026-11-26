@@ -52,17 +52,35 @@ export function comprobanteDePago(p: PagoDetalle): Comprobante {
 }
 
 /** Comprobante de un pago anual de agua, para reimprimirlo. */
+/**
+ * Líneas del recibo del agua de un año: el valor de la cuota y, si se pagó después del 31 de marzo,
+ * el recargo del 10% en una línea aparte. `pagado` es el total cobrado (cuota más recargo).
+ */
+export function lineasDeAgua(anio: number, pagado: number, recargo: number): ComprobanteLinea[] {
+  const lineas: ComprobanteLinea[] = [
+    {
+      concepto: 'Pago anual de agua',
+      periodo: `Año ${anio}`,
+      valor: Math.round((pagado - recargo) * 100) / 100,
+    },
+  ];
+  if (recargo > 0) {
+    lineas.push({
+      concepto: 'Recargo del 10% (pago después del 31 de marzo)',
+      periodo: `Año ${anio}`,
+      valor: recargo,
+    });
+  }
+  return lineas;
+}
+
 export function comprobanteDePagoAnual(p: PagoAnualDetalle): Comprobante {
   return {
     numero: numeroReciboAgua(p.id),
     fechaHora: formatearFecha(p.fecha_pago, 'conHora'),
     usuarioNombre: p.usuario_nombre,
     usuarioCedula: p.cedula,
-    lineas: (p.detalles ?? []).map((d) => ({
-      concepto: 'Pago anual de agua',
-      periodo: `Año ${d.periodo_anio}`,
-      valor: Number(d.valor_pagado),
-    })),
+    lineas: (p.detalles ?? []).flatMap((d) => lineasDeAgua(d.periodo_anio, Number(d.valor_pagado), Number(d.recargo ?? 0))),
     total: Number(p.valor_total),
     metodo: p.metodo,
     referencia: p.referencia,

@@ -1,0 +1,371 @@
+<app-modal
+  titulo="Registrar histórico"
+  subtitulo="Lo que la Junta llevaba en papel"
+  icono="ri-book-open-line"
+  tamano="lg"
+  [bloqueado]="guardando()"
+  (cerrar)="cerrar.emit()"
+>
+  @if (!persona()) {
+    <!-- PASO 1: ELEGIR AL USUARIO -->
+    <div class="modal__body form-stack">
+      <div class="field">
+        <label for="hist-busqueda">Buscar usuario</label>
+        <div class="search-field">
+          <i class="ri-search-line" aria-hidden="true"></i>
+          <input
+            id="hist-busqueda"
+            class="input"
+            type="search"
+            autocomplete="off"
+            placeholder="Cédula, nombres o apellidos"
+            [ngModel]="termino()"
+            (ngModelChange)="buscar($event)"
+            name="busqueda"
+          />
+        </div>
+        <span class="field__hint">Escriba al menos 2 caracteres.</span>
+      </div>
+
+      <div aria-live="polite">
+        @if (buscando()) {
+          <p class="caption">Buscando…</p>
+        } @else if (resultados().length) {
+          <ul class="hist-lista" aria-label="Resultados de la búsqueda">
+            @for (r of resultados(); track r.id) {
+              <li>
+                <button type="button" class="hist-lista__fila" (click)="elegir(r)">
+                  <span class="avatar" aria-hidden="true">{{ iniciales(r) }}</span>
+                  <span class="hist-lista__texto">
+                    <strong>{{ r.apellidos }} {{ r.nombres }}</strong>
+                    <span class="money">C.I. {{ r.cedula }}</span>
+                  </span>
+                  <i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else if (termino().trim().length >= 2) {
+          <p class="caption">
+            Ningún usuario coincide. Si todavía no está registrado, créelo con «Nuevo usuario» y
+            asígnele sus lotes; después vuelva aquí.
+          </p>
+        } @else {
+          <p class="caption">
+            Si el usuario aún no está registrado, créelo primero con «Nuevo usuario» y asígnele sus
+            lotes.
+          </p>
+        }
+      </div>
+    </div>
+  } @else if (cargando()) {
+    <div class="modal__body" aria-live="polite">
+      <div class="skeleton skeleton--text"></div>
+      <div class="skeleton skeleton--text"></div>
+      <div class="skeleton skeleton--text"></div>
+    </div>
+  } @else if (errorCarga()) {
+    <div class="modal__body">
+      <div class="alert alert--danger" role="alert">
+        {{ errorCarga() }}
+        <button type="button" class="btn btn--outline btn--sm" (click)="cargar()">Reintentar</button>
+      </div>
+    </div>
+  } @else if (datos(); as d) {
+    <form (ngSubmit)="guardar()" novalidate class="hist-form">
+      <div class="modal__body form-stack">
+        <!-- FICHA DEL USUARIO -->
+        <div class="hist-ficha">
+          <span class="avatar" aria-hidden="true">{{ iniciales(persona()!) }}</span>
+          <div class="hist-ficha__texto">
+            <strong>{{ persona()!.apellidos }} {{ persona()!.nombres }}</strong>
+            <span class="money">C.I. {{ persona()!.cedula }}</span>
+          </div>
+          <span class="pill pill--primary">
+            <i class="ri-map-pin-line" aria-hidden="true"></i> {{ d.lotes.length }}
+            {{ d.lotes.length === 1 ? 'lote' : 'lotes' }}
+          </span>
+          @if (!usuario()) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="cambiarUsuario()">
+              Cambiar
+            </button>
+          }
+        </div>
+
+        <!-- PESTAÑAS -->
+        <div class="hist-tabs" role="tablist" aria-label="Qué registrar">
+          @for (p of pasos(); track p.id) {
+            <button
+              type="button"
+              role="tab"
+              class="hist-tabs__tab"
+              [class.hist-tabs__tab--activa]="paso() === p.id"
+              [attr.aria-selected]="paso() === p.id"
+              [attr.aria-controls]="'hist-panel-' + p.id"
+              [id]="'hist-tab-' + p.id"
+              (click)="paso.set(p.id)"
+            >
+              <span>{{ p.titulo }}</span>
+              @if (p.subtotal > 0) {
+                <span class="hist-tabs__monto money">{{ p.subtotal | moneda }}</span>
+              }
+            </button>
+          }
+        </div>
+
+        <p class="caption">
+          Vacío = sin cambios · 0 = quitar lo pendiente · lo ya cobrado en caja no se modifica.
+        </p>
+
+        <div
+          role="tabpanel"
+          [id]="'hist-panel-' + paso()"
+          [attr.aria-labelledby]="'hist-tab-' + paso()"
+          class="form-stack"
+        >
+          @switch (paso()) {
+            @case ('agua') {
+              @if (!d.lotes.length) {
+                <div class="alert alert--warning" role="status">
+                  <i class="ri-information-line" aria-hidden="true"></i>
+                  <div>
+                    Este usuario no tiene lotes asignados. Asígnelos desde el padrón para registrar
+                    su agua del año; mientras tanto puede anotar lo de años anteriores y las multas.
+                  </div>
+                </div>
+              } @else {
+                <div class="field hist-campo-corto">
+                  <label for="hist-valor-ha">Valor por hectárea</label>
+                  <div class="money-field">
+                    <span aria-hidden="true">$</span>
+                    <input
+                      id="hist-valor-ha"
+                      name="valorHectarea"
+                      class="input money"
+                      type="number"
+                      inputmode="decimal"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      [(ngModel)]="valorHectarea"
+                    />
+                  </div>
+                  <span class="field__hint">
+                    @if (d.valor_hectarea_sugerido !== null) {
+                      Tarifa vigente: {{ d.valor_hectarea_sugerido | moneda }}.
+                    } @else {
+                      No hay tarifa registrada: indique el valor.
+                    }
+                    Solo se usa si la cuota del año aún no existe.
+                  </span>
+                </div>
+
+                <ul class="hist-lotes" aria-label="Lotes del usuario">
+                  @for (l of d.lotes; track l.lote_id) {
+                    <li class="hist-lote">
+                      <div class="hist-lote__datos">
+                        <strong>Lote {{ l.codigo }}</strong>
+                        <span class="hist-lote__meta">
+                          {{ l.sector_nombre || 'Sin sector' }} ·
+                          @if (l.hectareas !== null) {
+                            {{ l.hectareas }} ha
+                          } @else {
+                            sin superficie
+                          }
+                        </span>
+                      </div>
+                      <div class="hist-lote__cuota">
+                        @if (cuotaDe(l) !== null) {
+                          <span class="money">{{ cuotaDe(l) | moneda }}</span>
+                          <span class="hist-lote__meta">cuota {{ d.anio }}</span>
+                        } @else {
+                          <span class="hist-lote__meta">—</span>
+                        }
+                      </div>
+                      <div class="hist-lote__estado">
+                        @if (bloqueadoLote(l)) {
+                          <span class="badge badge--neutral">
+                            {{
+                              l.cuota?.estado === 'ANULADA' ? 'Cuota anulada' : 'Cobrada con recibo'
+                            }}
+                          </span>
+                        } @else if (l.hectareas === null) {
+                          <span class="badge badge--danger">Falta la superficie</span>
+                        } @else {
+                          <div
+                            class="hist-opciones"
+                            role="radiogroup"
+                            [attr.aria-label]="'Agua ' + d.anio + ' del lote ' + l.codigo"
+                          >
+                            <label
+                              class="hist-opciones__op"
+                              [class.hist-opciones__op--activa]="estadoLote[l.lote_id] === 'DEBE'"
+                            >
+                              <input
+                                type="radio"
+                                [name]="'lote-' + l.lote_id"
+                                value="DEBE"
+                                [(ngModel)]="estadoLote[l.lote_id]"
+                              />
+                              Debe
+                            </label>
+                            <label
+                              class="hist-opciones__op"
+                              [class.hist-opciones__op--activa]="estadoLote[l.lote_id] === 'PAGADA'"
+                            >
+                              <input
+                                type="radio"
+                                [name]="'lote-' + l.lote_id"
+                                value="PAGADA"
+                                [(ngModel)]="estadoLote[l.lote_id]"
+                              />
+                              Ya pagó
+                            </label>
+                          </div>
+                        }
+                      </div>
+                    </li>
+                  }
+                </ul>
+
+                @if (conRecargo(d.anio)) {
+                  <p class="caption">
+                    Como hoy es posterior al 31 de marzo, lo que <strong>debe</strong> se cobrará
+                    con el recargo del 10%. «Ya pagó» deja la cuota pagada en papel, sin recibo y
+                    sin sumarse a los ingresos de caja.
+                  </p>
+                } @else {
+                  <p class="caption">
+                    «Ya pagó» deja la cuota pagada en papel, sin recibo y sin sumarse a los
+                    ingresos de caja.
+                  </p>
+                }
+              }
+            }
+
+            @case ('anteriores') {
+              <p class="caption">
+                Un solo valor por concepto con todo lo que falta de los años anteriores.
+              </p>
+              <div class="hist-grid hist-grid--3">
+                <div class="field">
+                  <label for="hist-agua-ant">Agua</label>
+                  <div class="money-field">
+                    <span aria-hidden="true">$</span>
+                    <input
+                      id="hist-agua-ant"
+                      name="aguaAnterior"
+                      class="input money"
+                      type="number"
+                      inputmode="decimal"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      [disabled]="bloqueadoMonto(d.agua_anterior)"
+                      [(ngModel)]="aguaAnterior"
+                    />
+                  </div>
+                  @if (bloqueadoMonto(d.agua_anterior)) {
+                    <span class="field__hint">Ya se cobró en caja.</span>
+                  }
+                </div>
+                @for (t of tipos; track t.clave) {
+                  <div class="field">
+                    <label [for]="'hist-ant-' + t.clave">{{ t.titulo }}</label>
+                    <div class="money-field">
+                      <span aria-hidden="true">$</span>
+                      <input
+                        [id]="'hist-ant-' + t.clave"
+                        [name]="'anterior-' + t.clave"
+                        class="input money"
+                        type="number"
+                        inputmode="decimal"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        [disabled]="bloqueadoMonto(d.multas[t.clave].anterior)"
+                        [(ngModel)]="multas[t.clave].anterior"
+                      />
+                    </div>
+                    @if (bloqueadoMonto(d.multas[t.clave].anterior)) {
+                      <span class="field__hint">Ya se cobró en caja.</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @case ('multas') {
+              @for (t of tipos; track t.clave) {
+                <fieldset class="hist-bloque">
+                  <legend>{{ t.titulo }} · {{ d.anio }}, mes a mes</legend>
+                  <div class="hist-grid hist-grid--meses">
+                    @for (m of multas[t.clave].meses; track $index) {
+                      <div class="field">
+                        <label [for]="'hist-' + t.clave + '-' + $index">{{
+                          meses[$index].slice(0, 3)
+                        }}</label>
+                        <div class="money-field">
+                          <span aria-hidden="true">$</span>
+                          <input
+                            [id]="'hist-' + t.clave + '-' + $index"
+                            [name]="'mes-' + t.clave + '-' + $index"
+                            [attr.aria-label]="t.titulo + ' de ' + meses[$index]"
+                            class="input money"
+                            type="number"
+                            inputmode="decimal"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            [disabled]="bloqueadoMonto(d.multas[t.clave].meses[$index + 1 + ''])"
+                            [(ngModel)]="multas[t.clave].meses[$index]"
+                          />
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </fieldset>
+              }
+            }
+          }
+        </div>
+
+        @if (errores().length) {
+          <div class="alert alert--danger" role="alert">
+            <ul class="alert__list">
+              @for (e of errores(); track e) {
+                <li>{{ e }}</li>
+              }
+            </ul>
+          </div>
+        }
+        @if (errorGuardado()) {
+          <div class="alert alert--danger" role="alert">{{ errorGuardado() }}</div>
+        }
+      </div>
+
+      <div class="modal__footer hist-pie">
+        <div class="hist-pie__total" aria-live="polite">
+          <span>Quedará pendiente</span>
+          <strong class="money">{{ totalPendiente() | moneda }}</strong>
+        </div>
+        <button
+          type="button"
+          class="btn btn--outline pressable"
+          (click)="cerrar.emit()"
+          [disabled]="guardando()"
+          data-cancelar
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          class="btn btn--primary pressable"
+          [disabled]="guardando() || errores().length > 0"
+        >
+          {{ guardando() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+    </form>
+  }
+</app-modal>

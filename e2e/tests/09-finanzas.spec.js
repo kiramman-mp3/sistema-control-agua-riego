@@ -33,6 +33,11 @@ test.describe('egresos', () => {
     await page.locator('#egreso-proveedor').fill('Ferretería La Esperanza');
     await page.locator('#egreso-factura').fill(FACTURA);
     await page.locator('#egreso-descripcion').fill('Compra para reparar la compuerta (prueba E2E).');
+    // Sin la evidencia (factura, imagen o PDF) el egreso no se registra.
+    await page.getByRole('button', { name: 'Registrar egreso' }).last().click();
+    await expect(page.getByText(/evidencia/i).first()).toBeVisible();
+    await expect(page.locator('#egreso-concepto')).toBeVisible();
+    await page.locator('#egreso-evidencia').setInputFiles(fixture('documento-firmado.pdf'));
     await page.getByRole('button', { name: 'Registrar egreso' }).last().click();
     await expect(aviso(page, new RegExp('egreso.*registrad', 'i'))).toBeVisible();
 
@@ -41,6 +46,7 @@ test.describe('egresos', () => {
     await expect(fila).toContainText('Ferretería La Esperanza');
     await expect(fila).toContainText(FACTURA);
     await expect(fila).toContainText('37.50');
+    await expect(fila.getByRole('button', { name: /Ver/ })).toBeVisible();
 
     await page.reload();
     expect(await indicador(page, 'Saldo de caja')).toBeCloseTo(saldoAntes - 37.5, 2);

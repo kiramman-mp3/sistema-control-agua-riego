@@ -71,7 +71,14 @@ export interface PagoAnual {
 }
 
 export interface PagoAnualDetalle extends PagoAnual {
-  detalles: { obligacion_id: number; valor_pagado: number; periodo_anio: number }[];
+  /** `valor_pagado` ya incluye el `recargo` del 10% cuando el pago fue posterior al 31 de marzo. */
+  detalles: {
+    obligacion_id: number;
+    valor_pagado: number;
+    recargo?: number;
+    periodo_anio: number;
+    lote_codigo?: string | null;
+  }[];
 }
 
 /** GENERAL: pago de multas y otros cobros. AGUA: pago anual de agua. Cada uno tiene su numeración. */
@@ -152,6 +159,8 @@ export interface PagoRegistrado {
   message: string;
   pagoId: number;
   valorTotal: number;
+  /** Recargo del 10% incluido en el total (solo en el pago anual de agua). */
+  recargo?: number;
 }
 
 export interface Egreso {
@@ -164,6 +173,9 @@ export interface Egreso {
   proveedor_nombre: string | null;
   proveedor_ruc: string | null;
   registrado_por_usuario: string | null;
+  /** El servidor no envía la ruta del archivo: la evidencia se descarga con su propio enlace. */
+  tiene_evidencia: boolean;
+  estado?: 'VIGENTE' | 'ANULADO';
 }
 
 export interface NuevoEgreso {
@@ -261,7 +273,15 @@ export interface ObligacionAnualAgua {
   id: number;
   persona_id: number;
   periodo_anio: number;
+  /** Valor base de la cuota. */
   valor_total: number;
+  /** 10% del valor base si hoy es posterior al 31 de marzo del año de la cuota; 0 en caso contrario. */
+  recargo: number;
+  /** Lo que se cobra hoy: el valor base más el recargo. */
+  total_a_cobrar: number;
+  lote_id?: number | null;
+  lote_codigo?: string | null;
+  sector_nombre?: string | null;
   estado: 'PENDIENTE' | 'PAGADA' | 'ANULADA';
 }
 
@@ -346,4 +366,131 @@ export function numeroReciboAgua(id: number): string {
 
 export function numeroEgreso(id: number): string {
   return `EGR-${String(id).padStart(6, '0')}`;
+}
+
+/** Estado de una obligación histórica ya registrada (agua o multa de años anteriores, o multa de un mes). */
+export interface MontoHistorico {
+  id: number;
+  valor: number;
+  estado: 'PENDIENTE' | 'PAGADA';
+}
+
+export interface MultasHistorico {
+  /** Acumulado de años anteriores. */
+  anterior: MontoHistorico | null;
+  /** Multas del año en curso, por número de mes ('1' a '12'). */
+  meses: Record<string, MontoHistorico>;
+}
+
+/** Cuota de agua de un lote para el año del histórico: debe, o ya la pagó en papel. */
+export type EstadoLoteHistorico = 'DEBE' | 'PAGADA';
+
+export interface LoteHistorico {
+  lote_id: number;
+  codigo: string;
+  sector_nombre: string | null;
+  superficie_m2: number | null;
+  hectareas: number | null;
+  cuota: {
+    id: number;
+    estado: 'PENDIENTE' | 'PAGADA' | 'ANULADA';
+    valor_total: number;
+    pagada_antes_sistema: boolean;
+  } | null;
+}
+
+/** GET /financiero/historico/:personaId */
+export interface HistoricoUsuario {
+  persona: { id: number; cedula: string; nombre: string };
+  anio: number;
+  /** Último mes que se puede registrar (el actual, o 12 si el año ya terminó). */
+  mes_actual: number;
+  valor_hectarea_sugerido: number | null;
+  lotes: LoteHistorico[];
+  agua_anterior: MontoHistorico | null;
+  multas: { ASAMBLEA: MultasHistorico; MINGA: MultasHistorico };
+}
+
+export interface MultasHistoricoEnvio {
+  anterior?: number;
+  meses?: Record<string, number>;
+}
+
+/** PUT /financiero/historico/:personaId */
+export interface GuardarHistorico {
+  anio?: number;
+  valor_hectarea?: number | null;
+  lotes: { lote_id: number; estado: EstadoLoteHistorico }[];
+  agua_anterior?: number;
+  multas_asamblea?: MultasHistoricoEnvio;
+  multas_minga?: MultasHistoricoEnvio;
+}
+
+export interface MesDeuda {
+  mes: number;
+  valor: number;
+  cantidad: number;
+}
+
+export interface MultasDeudor {
+  actual: number;
+  anteriores: number;
+  meses: MesDeuda[];
+}
+
+export interface Deudor {
+  persona_id: number;
+  cedula: string;
+  nombre: string;
+  agua: {
+    actual: number;
+    recargo_actual: number;
+    /** Incluye el recargo de las cuotas de años anteriores. */
+    anteriores: number;
+    recargo_anteriores: number;
+    lotes_actual: string[];
+    total: number;
+  };
+  multas_asamblea: MultasDeudor;
+  multas_minga: MultasDeudor;
+  total_multas: number;
+  total: number;
+}
+
+export interface ResumenDeuda {
+  total: number;
+  actual: number;
+  anteriores: number;
+  usuarios: number;
+}
+
+/** GET /financiero/deudores */
+export interface Deudores {
+  fecha: string;
+  anio: number;
+  resumen: {
+    usuarios: number;
+    total: number;
+    agua: ResumenDeuda & { recargo_actual: number };
+    multas_asamblea: ResumenDeuda;
+    multas_minga: ResumenDeuda;
+  };
+  deudores: Deudor[];
+}
+
+/** Total de caja que la Junta ya tenía antes del sistema (anotado aparte de los pagos). */
+export interface IngresoPrevio {
+  id: number;
+  fecha: string;
+  valor: number;
+  descripcion: string;
+  estado: 'VIGENTE' | 'ANULADO';
+  motivo_anulacion: string | null;
+  registrado_por_usuario: string | null;
+}
+
+export interface NuevoIngresoPrevio {
+  fecha: string;
+  valor: number;
+  descripcion: string;
 }

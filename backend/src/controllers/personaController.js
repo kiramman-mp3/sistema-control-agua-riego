@@ -262,7 +262,7 @@ async function consultaPublicaPorCedula(req, res) {
 
   // El agua se cobra una vez al año por cada lote: sus obligaciones se muestran junto a multas y otros cobros.
   const [anuales] = await db.query(
-    `SELECT o.id, o.periodo_anio, o.valor_total, o.estado, o.fecha_emision, o.lote_id,
+    `SELECT o.id, o.periodo_anio, o.valor_total, o.estado, o.fecha_emision, o.lote_id, o.pagada_antes_sistema,
             l.codigo AS lote_codigo,
             (SELECT d.pago_anual_agua_id FROM pago_anual_agua_detalle d
              JOIN pago_anual_agua p ON p.id = d.pago_anual_agua_id AND p.estado = 'VIGENTE'
@@ -276,20 +276,27 @@ async function consultaPublicaPorCedula(req, res) {
   );
 
   const deudas = [
-    ...anuales.map((o) => ({
-      id: o.id,
-      tipo: 'AGUA_ANUAL',
-      concepto: o.lote_codigo ? `Pago anual de agua (Lote ${o.lote_codigo})` : 'Pago anual de agua',
-      conceptoCodigo: 'AGUA_ANUAL',
-      anio: o.periodo_anio,
-      mes: null,
-      periodo: o.lote_codigo ? `Año ${o.periodo_anio} · Lote ${o.lote_codigo}` : `Año ${o.periodo_anio}`,
-      valor: Number(o.valor_total),
-      estado: o.estado,
-      fechaEmision: o.fecha_emision,
-      pagoId: null,
-      pagoAnualId: o.pago_anual_id || null
-    })),
+    ...anuales.map((o) => {
+      // Una cuota pendiente se cobra con el recargo del 10% si ya pasó el 31 de marzo de su año.
+      const recargo = o.estado === 'PENDIENTE' ? finanzas.recargoAgua(o.periodo_anio, o.valor_total) : 0;
+      return {
+        id: o.id,
+        tipo: 'AGUA_ANUAL',
+        concepto: o.lote_codigo ? `Pago anual de agua (Lote ${o.lote_codigo})` : 'Pago anual de agua',
+        conceptoCodigo: 'AGUA_ANUAL',
+        anio: o.periodo_anio,
+        mes: null,
+        periodo: o.lote_codigo ? `Año ${o.periodo_anio} · Lote ${o.lote_codigo}` : `Año ${o.periodo_anio}`,
+        valor: aDolares(aCentavos(o.valor_total) + aCentavos(recargo)),
+        valorBase: Number(o.valor_total),
+        recargo,
+        pagadaAntesSistema: Boolean(o.pagada_antes_sistema),
+        estado: o.estado,
+        fechaEmision: o.fecha_emision,
+        pagoId: null,
+        pagoAnualId: o.pago_anual_id || null
+      };
+    }),
     ...obligaciones.map((o) => ({
       id: o.id,
       tipo: 'OBLIGACION',
