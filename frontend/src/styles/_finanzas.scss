@@ -1005,3 +1005,55 @@
     }
   }
 }
+
+/* --- Acciones del panel, filas de detalle y reporte de deudores --- */
+.fin-panel__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover strong {
+    text-decoration: underline;
+  }
+}
+
+.fin-table__detalle td {
+  background: var(--bg-surface-hover);
+}
+
+.fin-table__row--anulada {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* El reporte de deudores se imprime solo, sin el menú ni los controles del panel. */
+@media print {
+  .sidebar,
+  .section-nav,
+  .page-header,
+  .stat-grid:not([aria-label='Resumen de deudores']) {
+    display: none !important;
+  }
+
+  .admin-layout {
+    display: block !important;
+  }
+
+  .fin-panel {
+    border: 0 !important;
+    padding: 0 !important;
+  }
+}

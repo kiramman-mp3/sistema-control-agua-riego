@@ -153,6 +153,12 @@
                     <td>{{ item.periodo }} ({{ item.anio }})</td>
                     <td>
                       <strong>{{ item.valor | currency: 'USD' }}</strong>
+                      @if (item.recargo) {
+                        <br /><span class="caption"
+                          >Incluye recargo del 10% ({{ item.recargo | currency: 'USD' }}) por pago
+                          después del 31 de marzo</span
+                        >
+                      }
                     </td>
                     <td>
                       <span class="badge badge--danger">{{ item.estado }}</span>
@@ -329,8 +335,14 @@
                           {{ imprimiendo === clave(r.tipo, r.id) ? 'Abriendo…' : 'Imprimir' }}
                         </button>
                       } @else {
-                        <span class="text-muted" title="Este pago no tiene un comprobante vigente"
-                          >—</span
+                        <span
+                          class="text-muted"
+                          [title]="
+                            item.pagadaAntesSistema
+                              ? 'Pagada antes del sistema: el recibo se entregó en papel'
+                              : 'Este pago no tiene un comprobante vigente'
+                          "
+                          >{{ item.pagadaAntesSistema ? 'Pagada antes del sistema' : '—' }}</span
                         >
                       }
                     </td>

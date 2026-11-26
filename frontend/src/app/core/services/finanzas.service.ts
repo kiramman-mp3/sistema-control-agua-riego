@@ -6,8 +6,13 @@ import {
   BalanceRespuesta,
   UsuarioBusqueda,
   ConceptoCobro,
+  Deudores,
   Egreso,
+  GuardarHistorico,
   HistorialAnual,
+  HistoricoUsuario,
+  IngresoPrevio,
+  NuevoIngresoPrevio,
   NuevaTarifa,
   NuevoEgreso,
   NuevoPago,
@@ -125,8 +130,32 @@ export class FinanzasService {
     });
   }
 
-  registrarEgreso(egreso: NuevoEgreso): Observable<Respuesta<unknown> & { egresoId: number }> {
-    return this.http.post<Respuesta<unknown> & { egresoId: number }>(`${this.url}/egresos`, egreso);
+  /** Registra un egreso con su evidencia (factura, imagen o PDF), que es obligatoria. */
+  registrarEgreso(
+    egreso: NuevoEgreso,
+    evidencia: File,
+  ): Observable<Respuesta<unknown> & { egresoId: number }> {
+    const datos = new FormData();
+    datos.append('fecha', egreso.fecha);
+    datos.append('concepto', egreso.concepto);
+    datos.append('valor', String(egreso.valor));
+    if (egreso.proveedor) datos.append('proveedor', egreso.proveedor);
+    if (egreso.ruc_proveedor) datos.append('ruc_proveedor', egreso.ruc_proveedor);
+    if (egreso.numero_factura) datos.append('numero_factura', egreso.numero_factura);
+    if (egreso.descripcion) datos.append('descripcion', egreso.descripcion);
+    datos.append('archivo', evidencia);
+    return this.http.post<Respuesta<unknown> & { egresoId: number }>(`${this.url}/egresos`, datos);
+  }
+
+  /** Adjunta o reemplaza la evidencia de un egreso (por ejemplo, de los registrados antes de que fuera obligatoria). */
+  subirEvidenciaEgreso(id: number, archivo: File): Observable<Respuesta<unknown>> {
+    const datos = new FormData();
+    datos.append('archivo', archivo);
+    return this.http.post<Respuesta<unknown>>(`${this.url}/egresos/${id}/evidencia`, datos);
+  }
+
+  descargarEvidenciaEgreso(id: number): Observable<Blob> {
+    return this.http.get(`${this.url}/egresos/${id}/evidencia`, { responseType: 'blob' });
   }
 
   anularEgreso(id: number, motivo: string): Observable<Respuesta<unknown>> {
@@ -178,6 +207,42 @@ export class FinanzasService {
 
   anularObligacionAnualAgua(id: number, motivo: string): Observable<Respuesta<unknown>> {
     return this.http.post<Respuesta<unknown>>(`${this.url}/agua-anual/obligaciones/${id}/anular`, {
+      motivo,
+    });
+  }
+
+  /** Estado del histórico (papel) de un usuario: sus lotes con la cuota del año y lo ya registrado. */
+  getHistorico(personaId: number, anio?: number): Observable<Respuesta<HistoricoUsuario>> {
+    return this.http.get<Respuesta<HistoricoUsuario>>(`${this.url}/historico/${personaId}`, {
+      params: parametros({ anio }),
+    });
+  }
+
+  guardarHistorico(
+    personaId: number,
+    datos: GuardarHistorico,
+  ): Observable<Respuesta<{ lotes: number; montos: number }>> {
+    return this.http.put<Respuesta<{ lotes: number; montos: number }>>(
+      `${this.url}/historico/${personaId}`,
+      datos,
+    );
+  }
+
+  /** Deudores del agua y de las multas: resumen y detalle por usuario. */
+  getDeudores(): Observable<Respuesta<Deudores>> {
+    return this.http.get<Respuesta<Deudores>>(`${this.url}/deudores`);
+  }
+
+  getIngresosPrevios(): Observable<Respuesta<IngresoPrevio[]>> {
+    return this.http.get<Respuesta<IngresoPrevio[]>>(`${this.url}/ingresos-previos`);
+  }
+
+  registrarIngresoPrevio(datos: NuevoIngresoPrevio): Observable<Respuesta<unknown>> {
+    return this.http.post<Respuesta<unknown>>(`${this.url}/ingresos-previos`, datos);
+  }
+
+  anularIngresoPrevio(id: number, motivo: string): Observable<Respuesta<unknown>> {
+    return this.http.post<Respuesta<unknown>>(`${this.url}/ingresos-previos/${id}/anular`, {
       motivo,
     });
   }

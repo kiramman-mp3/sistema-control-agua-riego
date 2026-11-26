@@ -57,6 +57,10 @@ export class EgresosComponent implements OnInit {
   readonly formularioVisible = signal(false);
   readonly guardando = signal(false);
   readonly intentoGuardar = signal(false);
+  /** Evidencia del egreso (factura, imagen o PDF): obligatoria para registrarlo. */
+  readonly evidencia = signal<File | null>(null);
+  /** Egreso al que se está descargando o adjuntando la evidencia. */
+  readonly ocupadoId = signal<number | null>(null);
   form: FormEgreso = formVacio();
 
   readonly numeroEgreso = numeroEgreso;
@@ -118,8 +122,71 @@ export class EgresosComponent implements OnInit {
       });
   }
 
+  /** Devuelve el archivo si es un PDF, JPG o PNG de hasta 10 MB; si no, avisa y devuelve null. */
+  private validarArchivo(archivo: File | undefined): File | null {
+    if (!archivo) return null;
+    if (
+      !['application/pdf', 'image/jpeg', 'image/png'].includes(archivo.type) ||
+      !archivo.size ||
+      archivo.size > 10 * 1024 * 1024
+    ) {
+      this.notify.warning('Seleccione un PDF, JPG o PNG de hasta 10 MB.');
+      return null;
+    }
+    return archivo;
+  }
+
+  elegirEvidencia(input: HTMLInputElement): void {
+    const archivo = this.validarArchivo(input.files?.[0]);
+    input.value = '';
+    if (archivo) this.evidencia.set(archivo);
+  }
+
+  /** Abre la evidencia de un egreso en otra pestaña. */
+  verEvidencia(e: Egreso): void {
+    if (this.ocupadoId() !== null) return;
+    this.ocupadoId.set(e.id);
+    this.finanzas.descargarEvidenciaEgreso(e.id).subscribe({
+      next: (blob) => {
+        this.ocupadoId.set(null);
+        const url = URL.createObjectURL(blob);
+        if (!window.open(url, '_blank')) {
+          const enlace = document.createElement('a');
+          enlace.href = url;
+          enlace.download = `Evidencia_${numeroEgreso(e.id)}`;
+          enlace.click();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => {
+        this.ocupadoId.set(null);
+        this.notify.error('No se pudo abrir la evidencia del egreso.');
+      },
+    });
+  }
+
+  /** Adjunta la evidencia a un egreso que se registró antes de que fuera obligatoria. */
+  adjuntarEvidencia(e: Egreso, input: HTMLInputElement): void {
+    const archivo = this.validarArchivo(input.files?.[0]);
+    input.value = '';
+    if (!archivo || this.ocupadoId() !== null) return;
+    this.ocupadoId.set(e.id);
+    this.finanzas.subirEvidenciaEgreso(e.id, archivo).subscribe({
+      next: () => {
+        this.ocupadoId.set(null);
+        this.notify.success('Evidencia guardada.');
+        this.cargar();
+      },
+      error: (err) => {
+        this.ocupadoId.set(null);
+        this.notify.error(err.error?.message || 'No se pudo guardar la evidencia.');
+      },
+    });
+  }
+
   abrirFormulario(): void {
     this.form = formVacio();
+    this.evidencia.set(null);
     this.intentoGuardar.set(false);
     this.formularioVisible.set(true);
   }
@@ -132,9 +199,11 @@ export class EgresosComponent implements OnInit {
   }
 
   /** Errores de validación por campo, con las mismas reglas que la API. */
-  errores(): Partial<Record<keyof FormEgreso, string>> {
+  errores(): Partial<Record<keyof FormEgreso | 'evidencia', string>> {
     const f = this.form;
-    const errores: Partial<Record<keyof FormEgreso, string>> = {};
+    const errores: Partial<Record<keyof FormEgreso | 'evidencia', string>> = {};
+    if (!this.evidencia())
+      errores.evidencia = 'Adjunte la evidencia del egreso (factura, imagen o PDF).';
     if (!f.fecha) errores.fecha = 'Indique la fecha.';
     else if (f.fecha > this.hoy) errores.fecha = 'La fecha no puede ser futura.';
     if (f.concepto.trim().length < 3)
@@ -151,7 +220,7 @@ export class EgresosComponent implements OnInit {
     return errores;
   }
 
-  errorDe(campo: keyof FormEgreso): string {
+  errorDe(campo: keyof FormEgreso | 'evidencia'): string {
     return this.intentoGuardar() ? (this.errores()[campo] ?? '') : '';
   }
 
@@ -161,16 +230,21 @@ export class EgresosComponent implements OnInit {
     const f = this.form;
     const opcional = (v: string) => v.trim() || undefined;
     this.guardando.set(true);
+    const evidencia = this.evidencia();
+    if (!evidencia) return;
     this.finanzas
-      .registrarEgreso({
-        fecha: f.fecha,
-        concepto: f.concepto.trim(),
-        proveedor: opcional(f.proveedor),
-        ruc_proveedor: opcional(f.ruc_proveedor),
-        numero_factura: opcional(f.numero_factura),
-        descripcion: opcional(f.descripcion),
-        valor: Number(f.valor),
-      })
+      .registrarEgreso(
+        {
+          fecha: f.fecha,
+          concepto: f.concepto.trim(),
+          proveedor: opcional(f.proveedor),
+          ruc_proveedor: opcional(f.ruc_proveedor),
+          numero_factura: opcional(f.numero_factura),
+          descripcion: opcional(f.descripcion),
+          valor: Number(f.valor),
+        },
+        evidencia,
+      )
       .subscribe({
         next: (res) => {
           this.guardando.set(false);

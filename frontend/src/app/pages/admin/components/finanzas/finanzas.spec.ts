@@ -52,11 +52,13 @@ const obligacion = (
   concepto_nombre: codigo,
 });
 
-const anual = (id: number, anio: number, valor = 10): ObligacionAnualAgua => ({
+const anual = (id: number, anio: number, valor = 10, recargo = 0): ObligacionAnualAgua => ({
   id,
   persona_id: 7,
   periodo_anio: anio,
   valor_total: valor,
+  recargo,
+  total_a_cobrar: Math.round((valor + recargo) * 100) / 100,
   estado: 'PENDIENTE',
 });
 
@@ -283,7 +285,7 @@ describe('Cobro en caja', () => {
 
     const arbol = c.arbol();
     expect(arbol.map((a) => [a.etiqueta, a.total])).toEqual([
-      ['2025', 3],
+      ['Años anteriores', 3],
       ['2026', 17],
       ['Sin período', 2],
     ]);
@@ -539,6 +541,47 @@ describe('Egresos', () => {
     expect(c.errorDe('ruc_proveedor')).toContain('10 o 13');
   });
 
+  it('exige la evidencia (factura, imagen o PDF) y la envía junto con el egreso', () => {
+    const registrarEgreso = vi.fn(() =>
+      of({ status: 'OK' as const, message: 'Egreso registrado.', data: null, egresoId: 4 }),
+    );
+    configurar({ getEgresos: () => of({ status: 'OK', data: [] }), registrarEgreso });
+    const c = TestBed.createComponent(EgresosComponent).componentInstance;
+    c.abrirFormulario();
+    c.form.concepto = 'Tubo de dos pulgadas';
+    c.form.valor = 12;
+
+    c.guardar();
+    expect(registrarEgreso).not.toHaveBeenCalled();
+    expect(c.errorDe('evidencia')).toContain('evidencia');
+
+    c.evidencia.set(COMPROBANTE);
+    expect(c.errorDe('evidencia')).toBe('');
+    c.guardar();
+    expect(registrarEgreso).toHaveBeenCalledTimes(1);
+    const [egreso, archivo] = registrarEgreso.mock.calls[0] as unknown as [
+      { concepto: string; valor: number },
+      File,
+    ];
+    expect(egreso).toMatchObject({ concepto: 'Tubo de dos pulgadas', valor: 12 });
+    expect(archivo).toBe(COMPROBANTE);
+  });
+
+  it('solo acepta PDF, JPG o PNG de hasta 10 MB como evidencia', () => {
+    const { notify } = configurar({ getEgresos: () => of({ status: 'OK', data: [] }) });
+    const c = TestBed.createComponent(EgresosComponent).componentInstance;
+    const elegir = (archivo: File) => {
+      const campo = document.createElement('input');
+      Object.defineProperty(campo, 'files', { value: [archivo] });
+      c.elegirEvidencia(campo);
+    };
+    elegir(new File(['x'], 'nota.txt', { type: 'text/plain' }));
+    expect(c.evidencia()).toBeNull();
+    expect(notify.warning).toHaveBeenCalled();
+    elegir(new File(['x'], 'factura.png', { type: 'image/png' }));
+    expect(c.evidencia()?.name).toBe('factura.png');
+  });
+
   it('el RUC descarta todo lo que no sea dígito mientras se escribe', () => {
     configurar({ getEgresos: () => of({ status: 'OK', data: [] }) });
     const c = TestBed.createComponent(EgresosComponent).componentInstance;
@@ -696,9 +739,9 @@ describe('Apartados de finanzas', () => {
 
   it('define tres apartados del menú con sus secciones', () => {
     expect(GRUPOS_FINANZAS.map((g) => [g.etiqueta, g.secciones.map((s) => s.id)])).toEqual([
-      ['Cobros y pagos', ['cobrar', 'egresos']],
+      ['Cobros y pagos', ['cobrar', 'egresos', 'caja-previa']],
       ['Tarifas y pago anual', ['tarifas', 'facturacion']],
-      ['Historial financiero', ['pagos', 'historial']],
+      ['Historial financiero', ['pagos', 'historial', 'deudores']],
     ]);
   });
 
@@ -737,7 +780,7 @@ describe('Apartados de finanzas', () => {
     expect(navigate).toHaveBeenCalledWith(['/admin', 'historial', 'pagos']);
 
     c.onTeclaSegmento(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
-    expect(navigate).toHaveBeenLastCalledWith(['/admin', 'historial', 'pagos']);
+    expect(navigate).toHaveBeenLastCalledWith(['/admin', 'historial', 'deudores']);
   });
 
   it('las URL antiguas /admin/finanzas/… llevan a su nuevo apartado', () => {

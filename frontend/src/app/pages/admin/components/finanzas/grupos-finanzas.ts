@@ -1,5 +1,12 @@
 export type SeccionFinanzas =
-  'cobrar' | 'pagos' | 'egresos' | 'historial' | 'facturacion' | 'tarifas';
+  | 'cobrar'
+  | 'pagos'
+  | 'egresos'
+  | 'caja-previa'
+  | 'historial'
+  | 'deudores'
+  | 'facturacion'
+  | 'tarifas';
 export type GrupoFinanzas = 'cobros' | 'ajustes' | 'historial';
 
 export interface Seccion {
@@ -20,8 +27,8 @@ export interface GrupoSecciones {
 
 /**
  * Tres apartados del menú lateral, cada uno con su URL (/admin/cobros/egresos):
- * Cobros y pagos (caja y egresos), Tarifas y pago anual (tarifas y pago anual de agua)
- * e Historial financiero (recibos e ingresos/egresos por año). `?nuevo=egreso` abre el formulario de egreso.
+ * Cobros y pagos (caja, egresos y caja previa al sistema), Tarifas y pago anual (tarifas y pago anual de agua)
+ * e Historial financiero (recibos, ingresos/egresos por año y deudores). `?nuevo=egreso` abre el formulario de egreso.
  */
 export const GRUPOS_FINANZAS: GrupoSecciones[] = [
   {
@@ -29,10 +36,12 @@ export const GRUPOS_FINANZAS: GrupoSecciones[] = [
     etiqueta: 'Cobros y pagos',
     icono: 'ri-hand-coin-line',
     indicadores: true,
-    descripcion: 'Cobro en caja a los usuarios y registro de los egresos de la Junta.',
+    descripcion:
+      'Cobro en caja a los usuarios, egresos de la Junta y la caja que ya existía antes del sistema.',
     secciones: [
       { id: 'cobrar', etiqueta: 'Cobrar', icono: 'ri-hand-coin-line' },
       { id: 'egresos', etiqueta: 'Egresos', icono: 'ri-shopping-bag-3-line' },
+      { id: 'caja-previa', etiqueta: 'Caja previa', icono: 'ri-safe-2-line' },
     ],
   },
   {
@@ -51,10 +60,12 @@ export const GRUPOS_FINANZAS: GrupoSecciones[] = [
     etiqueta: 'Historial financiero',
     icono: 'ri-history-line',
     indicadores: true,
-    descripcion: 'Todos los recibos de cobro y los ingresos y egresos de la Junta por año.',
+    descripcion:
+      'Recibos de cobro, ingresos y egresos de la Junta por año, y quién debe agua y multas.',
     secciones: [
       { id: 'pagos', etiqueta: 'Recibos', icono: 'ri-file-list-3-line' },
       { id: 'historial', etiqueta: 'Ingresos y egresos', icono: 'ri-git-branch-line' },
+      { id: 'deudores', etiqueta: 'Deudores', icono: 'ri-user-unfollow-line' },
     ],
   },
 ];
