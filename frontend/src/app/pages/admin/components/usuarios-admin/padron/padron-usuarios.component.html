@@ -1,27 +1,5 @@
 <section class="module" aria-labelledby="padron-titulo">
-  <div class="section-head">
-    <div>
-      <h3 id="padron-titulo" class="section-head__title">Padrón de usuarios</h3>
-      <p class="section-head__subtitle">
-        {{ total() }} usuarios registrados · datos de contacto, lotes y cuenta de acceso.
-      </p>
-    </div>
-    <div class="section-head__actions">
-      @if (esTesorero) {
-        <button
-          type="button"
-          class="btn btn--outline"
-          (click)="historicoDe.set({ usuario: null })"
-          title="Anotar lo que los usuarios debían según los registros en papel"
-        >
-          <i class="ri-book-open-line" aria-hidden="true"></i> Registrar histórico
-        </button>
-      }
-      <button type="button" class="btn btn--primary" (click)="formulario.set({ usuario: null })">
-        <i class="ri-user-add-line" aria-hidden="true"></i> Nuevo usuario
-      </button>
-    </div>
-  </div>
+  <h2 id="padron-titulo" class="sr-only">Padrón de usuarios</h2>
 
   @if (bloqueadas().length) {
     <div class="alert alert--warning" role="status" aria-label="Cuentas bloqueadas">
@@ -58,7 +36,7 @@
           <input
             type="search"
             class="input"
-            placeholder="Buscar por cédula o nombre…"
+            placeholder="Cédula o nombre…"
             [(ngModel)]="busqueda"
             (ngModelChange)="filtrar()"
             aria-label="Buscar usuario"
@@ -94,9 +72,32 @@
           [class.btn--primary]="verEliminados()"
           (click)="alternarEliminados()"
           [attr.aria-pressed]="verEliminados()"
+          [attr.aria-label]="verEliminados() ? 'Volver al padrón' : 'Ver eliminados'"
+          [title]="verEliminados() ? 'Volver al padrón' : 'Ver usuarios eliminados'"
         >
           <i class="ri-delete-bin-line" aria-hidden="true"></i>
-          {{ verEliminados() ? 'Volver al padrón' : 'Ver eliminados' }}
+          @if (verEliminados()) {
+            Volver al padrón
+          }
+        </button>
+        <span class="toolbar__sep" aria-hidden="true"></span>
+        @if (esTesorero) {
+          <button
+            type="button"
+            class="btn btn--outline btn--sm"
+            (click)="historicoDe.set({ usuario: null })"
+            title="Registrar histórico: anotar lo que los usuarios debían según los registros en papel"
+            aria-label="Registrar histórico"
+          >
+            <i class="ri-book-open-line" aria-hidden="true"></i> Histórico
+          </button>
+        }
+        <button
+          type="button"
+          class="btn btn--primary btn--sm"
+          (click)="formulario.set({ usuario: null })"
+        >
+          <i class="ri-user-add-line" aria-hidden="true"></i> Nuevo usuario
         </button>
       </div>
     </div>
@@ -156,9 +157,7 @@
           <thead>
             <tr>
               <th>Usuario</th>
-              <th>Cédula</th>
               <th>Sector</th>
-              <th>Contacto</th>
               <th>Lotes</th>
               <th class="num">Agua al año</th>
               <th>Estado</th>
@@ -173,39 +172,32 @@
                     <span class="avatar" aria-hidden="true">{{ iniciales(u) }}</span>
                     <div class="person__text">
                       <strong>{{ u.apellidos }} {{ u.nombres }}</strong>
+                      <span class="person__meta">
+                        <span class="money">{{ u.cedula }}</span>
+                        @if (u.celular || u.telefono) {
+                          <span aria-hidden="true">·</span>
+                          <span
+                            ><i
+                              [class]="u.celular ? 'ri-smartphone-line' : 'ri-phone-line'"
+                              aria-hidden="true"
+                            ></i>
+                            {{ u.celular || u.telefono }}</span
+                          >
+                        }
+                      </span>
                     </div>
                   </div>
                 </td>
-                <td data-label="Cédula" class="money cell-nowrap">{{ u.cedula }}</td>
                 <td data-label="Sector">
                   @if (u.sector_nombre) {
                     <span
-                      class="pill pill--primary pill--wrap"
+                      class="pill pill--primary pill--truncate"
                       [title]="'Sector: ' + u.sector_nombre"
                     >
                       <i class="ri-map-pin-2-line" aria-hidden="true"></i> {{ u.sector_nombre }}
                     </span>
                   } @else {
                     <span class="text-muted">Sin sector</span>
-                  }
-                </td>
-                <td data-label="Contacto" class="cell-nowrap">
-                  @if (u.celular || u.telefono) {
-                    <div class="contact-list">
-                      @if (u.celular) {
-                        <span
-                          ><i class="ri-smartphone-line" aria-hidden="true"></i>
-                          {{ u.celular }}</span
-                        >
-                      }
-                      @if (u.telefono) {
-                        <span
-                          ><i class="ri-phone-line" aria-hidden="true"></i> {{ u.telefono }}</span
-                        >
-                      }
-                    </div>
-                  } @else {
-                    <span class="text-muted">N/D</span>
                   }
                 </td>
                 <td data-label="Lotes" class="cell-nowrap">
@@ -242,7 +234,7 @@
                     >{{ u.estado === 'ACTIVO' ? 'Activo' : 'Inactivo' }}</span
                   >
                 </td>
-                <td class="cell-actions">
+                <td class="cell-actions cell-actions--sticky">
                   @if (verEliminados()) {
                     <button
                       type="button"
