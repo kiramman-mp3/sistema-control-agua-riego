@@ -150,6 +150,11 @@ export class InicioComponent implements OnInit {
       .filter((d) => d.turnosFiltrados.length > 0);
   }
 
+  /** Días de la semana que tienen al menos un turno en el sector abierto. */
+  diasConTurnos() {
+    return (this.sectorCronograma?.dias ?? []).filter((d) => d.turnos?.length > 0);
+  }
+
   totalTurnosVisibles(): number {
     return this.diasVisibles().reduce((acc, d) => acc + d.turnosFiltrados.length, 0);
   }
