@@ -202,14 +202,18 @@
             alt=""
           />
           <div>
-            <div class="official-tag">
-              <span class="pulse-dot"></span> JUNTA ADMINISTRADORA DE AGUA POTABLE Y RIEGO "LAS
-              JONES"
-            </div>
-            <h2 class="modal-main-title">Cronograma Oficial de Turnos de Agua</h2>
+            <h2 class="modal-main-title">Cronograma de turnos de riego</h2>
             <p class="modal-sub">
-              Distribución y entrega de caudales de riego — Sector
-              <strong>{{ nombreSectorModal }}</strong> (Patate)
+              <span class="modal-sub__junta">Junta de Agua y Riego "La Jones" · </span>Sector
+              <strong>{{ nombreSectorModal }}</strong>
+              @if (sectorCronograma && sectorCronograma.total_turnos) {
+                <span class="modal-sub__cifras">
+                  · {{ sectorCronograma.total_turnos }}
+                  {{ sectorCronograma.total_turnos === 1 ? 'turno' : 'turnos' }} por semana ·
+                  {{ sectorCronograma.total_horas }} h de agua ·
+                  {{ sectorCronograma.total_lotes }} lotes
+                </span>
+              }
             </p>
           </div>
         </div>
@@ -220,7 +224,8 @@
             (click)="imprimirCronograma()"
             title="Imprimir este cronograma para cartelera"
           >
-            <i class="ri-printer-line" aria-hidden="true"></i> Imprimir Hoja
+            <i class="ri-printer-line" aria-hidden="true"></i>
+            <span class="btn-print__texto">Imprimir</span>
           </button>
           <button
             type="button"
@@ -235,23 +240,9 @@
 
       <!-- CARTA DE PRESENTACIÓN Y SELECTOR DE SECTOR -->
       <div class="carta-presentacion-bar">
-        <div class="carta-presentacion-nota">
-          <div class="nota-icono">
-            <i class="ri-information-fill" aria-hidden="true"></i>
-          </div>
-          <div class="nota-texto">
-            <strong>Carta Informativa para los Usuarios:</strong>
-            <span
-              >Este horario indica los días y horas exactas en los que se abre el canal para cada
-              sector. El agua la recibe el representante del sector en nombre de todos sus usuarios:
-              acuda con 15 minutos de anticipación a la compuerta.</span
-            >
-          </div>
-        </div>
-
         <div class="sector-switcher-row">
           <span class="switcher-rotulo">
-            <i class="ri-map-pin-2-fill" aria-hidden="true"></i> Seleccionar Sector:
+            <i class="ri-map-pin-2-fill" aria-hidden="true"></i> Sector:
           </span>
           <div class="sector-pills-row">
             @for (s of sectores; track s.id) {
@@ -264,7 +255,7 @@
                 @if (s.nombre.toLowerCase() === nombreSectorModal.toLowerCase()) {
                   <i class="ri-check-line" aria-hidden="true"></i>
                 }
-                Sector {{ s.nombre }}
+                {{ s.nombre }}
               </button>
             }
           </div>
@@ -292,34 +283,8 @@
             <p class="empty-hint">Por favor consulte con la directiva de la Junta de Aguas.</p>
           </div>
         } @else {
-          <!-- TARJETAS DE RESUMEN CLARAS Y GRANDES -->
-          <div class="cronograma-metrics-grid">
-            <div class="metric-card metric-card--turnos">
-              <div class="metric-icon"><i class="ri-user-star-line" aria-hidden="true"></i></div>
-              <div class="metric-content">
-                <span class="metric-val">{{ sectorCronograma.total_turnos }}</span>
-                <span class="metric-desc">Turnos semanales</span>
-              </div>
-            </div>
-
-            <div class="metric-card metric-card--horas">
-              <div class="metric-icon"><i class="ri-time-line" aria-hidden="true"></i></div>
-              <div class="metric-content">
-                <span class="metric-val">{{ sectorCronograma.total_horas }}h</span>
-                <span class="metric-desc">Horas de agua semanales</span>
-              </div>
-            </div>
-
-            <div class="metric-card metric-card--lotes">
-              <div class="metric-icon"><i class="ri-landscape-line" aria-hidden="true"></i></div>
-              <div class="metric-content">
-                <span class="metric-val">{{ sectorCronograma.total_lotes }}</span>
-                <span class="metric-desc">Lotes y parcelas en riego</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- PESTAÑAS HORIZONTALES GRANDES POR DÍA -->
+          <!-- CONTROLES FIJOS: día de la semana y formato; solo la lista de turnos se desplaza -->
+          <div class="cronograma-controles">
           <div class="day-tabs-scroll-wrapper">
             <div class="day-tabs-list" role="tablist">
               <button
@@ -356,10 +321,7 @@
 
           <!-- SELECTOR DE FORMATO DE VISTA (PLANILLA DIRECTA TIPO PDF O TARJETAS) -->
           <div class="vista-selector-row">
-            <span class="vista-selector-label">
-              <i class="ri-layout-grid-line" aria-hidden="true"></i> Formato de visualización:
-            </span>
-            <div class="vista-selector-btns">
+            <div class="vista-selector-btns" role="group" aria-label="Formato de visualización">
               <button
                 type="button"
                 class="btn-vista-pill"
@@ -367,7 +329,7 @@
                 (click)="vistaCronograma = 'tabla'"
                 title="Ver en formato Planilla directa tipo lista oficial (igual que el PDF)"
               >
-                <i class="ri-table-line" aria-hidden="true"></i> Planilla Oficial (Formato PDF)
+                <i class="ri-table-line" aria-hidden="true"></i> Planilla
               </button>
               <button
                 type="button"
@@ -379,6 +341,7 @@
                 <i class="ri-grid-fill" aria-hidden="true"></i> Tarjetas
               </button>
             </div>
+          </div>
           </div>
 
           <!-- CONTENIDO DE TURNOS AGRUPADOS POR DÍA -->
@@ -407,9 +370,6 @@
                       </div>
                       <div>
                         <h3 class="day-title-text">{{ d.dia_nombre | uppercase }}</h3>
-                        <span class="day-subtitle"
-                          >Horario y turnos programados para entrega de agua</span
-                        >
                       </div>
                     </div>
                     <div class="day-turnos-badge">
@@ -660,18 +620,16 @@
       <!-- PIE DEL MODAL -->
       <footer class="cronograma-modal__footer">
         <div class="footer-note">
-          <i class="ri-shield-check-fill" aria-hidden="true"></i>
+          <i class="ri-information-fill" aria-hidden="true"></i>
           <span
-            ><strong>Regla de la Junta:</strong> El agua de riego se entrega por orden de lista sin
-            excepción. Cuide el canal y no desperdicie agua.</span
+            >El agua la recibe el representante del sector en nombre de todos sus usuarios: acuda
+            15 minutos antes a la compuerta.
+            <span class="footer-note__extra">Se entrega por orden de lista, sin excepción.</span></span
           >
         </div>
         <div class="footer-buttons">
-          <button type="button" class="btn btn--outline" (click)="imprimirCronograma()">
-            <i class="ri-printer-line" aria-hidden="true"></i> Imprimir Hoja
-          </button>
-          <button type="button" class="btn btn--primary" (click)="cerrarModalCronograma()">
-            Entendido, Cerrar
+          <button type="button" class="btn btn--primary btn--sm" (click)="cerrarModalCronograma()">
+            Cerrar
           </button>
         </div>
       </footer>
